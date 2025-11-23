@@ -1,3 +1,5 @@
+<!-- GARUDA-Frontend/src/views/MonitorMapView.vue -->
+
 <script setup>
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';

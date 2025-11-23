@@ -115,7 +115,7 @@ const initializeMap = () => {
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: false,
         maxZoom: 19,
-        
+
     });
 
     const baseLayers = { 'OpenStreetMap': osmLayer };
@@ -180,7 +180,7 @@ const setupDrawingControls = () => {
 
     map.value.on(L.Draw.Event.DRAWSTOP, (e) => {
         // User cancelled drawing - do nothing
-        
+
         disableAllDrawingTools();
         initializeMap();
     });
@@ -270,7 +270,8 @@ const visualizeAccumulatedGeometries = () => {
         }
     });
 };
-// MapVisualization.vue - Fixed loadExistingAOIs method
+
+
 
 const loadExistingAOIs = (aois, shouldFitBounds = false) => {
     if (!savedAoisLayerGroup.value) return;
@@ -280,20 +281,17 @@ const loadExistingAOIs = (aois, shouldFitBounds = false) => {
     if (!aois || aois.length === 0) return;
 
     const validAois = aois.filter(aoi => {
-        // CRITICAL FIX: Validate geometry before rendering
         const geom = aoi.geomGeoJson || aoi.geometry;
         if (!geom) {
             console.warn(`AOI ${aoi.name} has no geometry, skipping`);
             return false;
         }
 
-        // Validate geometry has coordinates
         if (geom.type === 'GeometryCollection') {
             if (!geom.geometries || geom.geometries.length === 0) {
                 console.warn(`AOI ${aoi.name} has empty GeometryCollection, skipping`);
                 return false;
             }
-            // Check each geometry in collection
             return geom.geometries.every(g => {
                 if (!g.coordinates || g.coordinates.length === 0) {
                     console.warn(`Invalid coordinates in GeometryCollection for ${aoi.name}`);
@@ -318,6 +316,7 @@ const loadExistingAOIs = (aois, shouldFitBounds = false) => {
 
     const aoiLayers = validAois.map(aoi => {
         try {
+            // Main AOI layer (buffered polygon)
             const layer = L.geoJSON(aoi.geomGeoJson || aoi.geometry, {
                 style: {
                     color: props.isMonitorMode ? '#10b981' : '#f97316',
@@ -341,38 +340,141 @@ const loadExistingAOIs = (aois, shouldFitBounds = false) => {
                         });
                     }
 
-                    // FIXED: Handle buffer visualization with proper validation
-                    if (aoi.geomProperties?.bufferConfig) {
-                        aoi.geomProperties.bufferConfig.forEach((config, idx) => {
-                            if (!config.buffer || config.type === 'Polygon') return;
+                    // CRITICAL: Display original coordinates from geom_properties
+                    const originalCoordinates = aoi.geomProperties?.originalCoordinates || 
+                                               aoi.geom_properties?.originalCoordinates;
 
+                    if (originalCoordinates && Array.isArray(originalCoordinates)) {
+                        // Display original points/lines
+                        originalCoordinates.forEach((original, idx) => {
                             try {
-                                // Extract specific geometry from collection
-                                const geom = aoi.geometry?.geometries
-                                    ? aoi.geometry.geometries[idx]
-                                    : aoi.geometry;
+                                if (original.type === 'Point') {
+                                    const [lng, lat] = original.coordinates;
+                                    if (typeof lng === 'number' && typeof lat === 'number') {
+                                        // Display original point
+                                        L.circleMarker([lat, lng], {
+                                            radius: 6,
+                                            color: '#FF0000',
+                                            fillColor: '#FF0000',
+                                            fillOpacity: 0.8,
+                                            weight: 2
+                                        }).addTo(savedAoisLayerGroup.value)
+                                          .bindTooltip(`Original Point ${idx + 1}`, { permanent: false });
 
-                                if (!geom || !geom.coordinates) {
-                                    console.warn(`No valid geometry for buffer at index ${idx}`);
-                                    return;
+                                        // Display buffer circle
+                                        if (original.buffer) {
+                                            L.circle([lat, lng], {
+                                                radius: original.buffer,
+                                                color: '#FF0000',
+                                                fillColor: '#FF0000',
+                                                fillOpacity: 0.15,
+                                                weight: 1,
+                                                dashArray: '3, 6'
+                                            }).addTo(savedAoisLayerGroup.value);
+                                        }
+                                    }
+                                } else if (original.type === 'LineString') {
+                                    // Display original line
+                                    L.geoJSON({
+                                        type: 'LineString',
+                                        coordinates: original.coordinates
+                                    }, {
+                                        style: {
+                                            color: '#FF0000',
+                                            weight: 3,
+                                            opacity: 0.8
+                                        }
+                                    }).addTo(savedAoisLayerGroup.value)
+                                      .bindTooltip(`Original Line ${idx + 1}`, { permanent: false });
+
+                                    // Display buffer around line
+                                    if (original.buffer) {
+                                        const buffered = turf.buffer({
+                                            type: 'LineString',
+                                            coordinates: original.coordinates
+                                        }, original.buffer, { units: 'meters' });
+                                        
+                                        L.geoJSON(buffered, {
+                                            style: {
+                                                color: '#FF0000',
+                                                weight: 1,
+                                                fillColor: '#FF0000',
+                                                fillOpacity: 0.15,
+                                                dashArray: '3, 6'
+                                            }
+                                        }).addTo(savedAoisLayerGroup.value);
+                                    }
                                 }
+                            } catch (coordError) {
+                                console.warn(`Failed to display original coordinates for index ${idx}:`, coordError);
+                            }
+                        });
+                    } else {
+                        // Legacy format: single buffer (backward compatibility)
+                        const bufferConfig = aoi.geomProperties?.bufferConfig || aoi.geom_properties?.bufferConfig;
+                        
+                        if (bufferConfig) {
+                            bufferConfig.forEach((config, idx) => {
+                                if (!config.buffer || config.type === 'Polygon') return;
 
-                                if (config.type === 'Point') {
-                                    const [lng, lat] = geom.coordinates;
-                                    if (typeof lng !== 'number' || typeof lat !== 'number') {
-                                        console.warn(`Invalid Point coordinates for buffer: [${lng}, ${lat}]`);
+                                try {
+                                    const geom = aoi.geometry?.geometries
+                                        ? aoi.geometry.geometries[idx]
+                                        : aoi.geometry;
+
+                                    if (!geom || !geom.coordinates) {
+                                        console.warn(`No valid geometry for buffer at index ${idx}`);
                                         return;
                                     }
-                                    L.circle([lat, lng], {
-                                        radius: config.buffer,
-                                        color: '#00BFFF',
-                                        fillColor: '#3399ff',
-                                        fillOpacity: 0.3,
-                                        weight: 2,
-                                        dashArray: '5, 5'
-                                    }).addTo(savedAoisLayerGroup.value);
-                                } else if (config.type === 'LineString') {
-                                    const buffered = turf.buffer(geom, config.buffer, { units: 'meters' });
+
+                                    if (config.type === 'Point') {
+                                        const [lng, lat] = geom.coordinates;
+                                        if (typeof lng === 'number' && typeof lat === 'number') {
+                                            L.circle([lat, lng], {
+                                                radius: config.buffer,
+                                                color: '#00BFFF',
+                                                fillColor: '#3399ff',
+                                                fillOpacity: 0.3,
+                                                weight: 2,
+                                                dashArray: '5, 5'
+                                            }).addTo(savedAoisLayerGroup.value);
+                                        }
+                                    } else if (config.type === 'LineString') {
+                                        const buffered = turf.buffer(geom, config.buffer, { units: 'meters' });
+                                        L.geoJSON(buffered, {
+                                            style: {
+                                                color: '#00BFFF',
+                                                weight: 2,
+                                                fillColor: '#3399ff',
+                                                fillOpacity: 0.3,
+                                                dashArray: '5, 5'
+                                            }
+                                        }).addTo(savedAoisLayerGroup.value);
+                                    }
+                                } catch (bufferError) {
+                                    console.warn(`Failed to create buffer for index ${idx}:`, bufferError);
+                                }
+                            });
+                        } else if (aoi.geomProperties?.buffer && aoi.geomProperties?.originalType !== 'Polygon') {
+                            // Single geometry buffer (legacy format)
+                            try {
+                                const geom = aoi.geomGeoJson || aoi.geometry;
+                                const buffer = aoi.geomProperties.buffer;
+
+                                if (aoi.geomProperties.originalType === 'Point') {
+                                    const [lng, lat] = geom.coordinates;
+                                    if (typeof lng === 'number' && typeof lat === 'number') {
+                                        L.circle([lat, lng], {
+                                            radius: buffer,
+                                            color: '#00BFFF',
+                                            fillColor: '#3399ff',
+                                            fillOpacity: 0.3,
+                                            weight: 2,
+                                            dashArray: '5, 5'
+                                        }).addTo(savedAoisLayerGroup.value);
+                                    }
+                                } else if (aoi.geomProperties.originalType === 'LineString') {
+                                    const buffered = turf.buffer(geom, buffer, { units: 'meters' });
                                     L.geoJSON(buffered, {
                                         style: {
                                             color: '#00BFFF',
@@ -384,41 +486,8 @@ const loadExistingAOIs = (aois, shouldFitBounds = false) => {
                                     }).addTo(savedAoisLayerGroup.value);
                                 }
                             } catch (bufferError) {
-                                console.warn(`Failed to create buffer for index ${idx}:`, bufferError);
+                                console.warn(`Failed to create single buffer:`, bufferError);
                             }
-                        });
-                    } else if (aoi.geomProperties?.buffer && aoi.geomProperties?.originalType !== 'Polygon') {
-                        // Handle single geometry buffer (legacy format)
-                        try {
-                            const geom = aoi.geomGeoJson || aoi.geometry;
-                            const buffer = aoi.geomProperties.buffer;
-
-                            if (aoi.geomProperties.originalType === 'Point') {
-                                const [lng, lat] = geom.coordinates;
-                                if (typeof lng === 'number' && typeof lat === 'number') {
-                                    L.circle([lat, lng], {
-                                        radius: buffer,
-                                        color: '#00BFFF',
-                                        fillColor: '#3399ff',
-                                        fillOpacity: 0.3,
-                                        weight: 2,
-                                        dashArray: '5, 5'
-                                    }).addTo(savedAoisLayerGroup.value);
-                                }
-                            } else if (aoi.geomProperties.originalType === 'LineString') {
-                                const buffered = turf.buffer(geom, buffer, { units: 'meters' });
-                                L.geoJSON(buffered, {
-                                    style: {
-                                        color: '#00BFFF',
-                                        weight: 2,
-                                        fillColor: '#3399ff',
-                                        fillOpacity: 0.3,
-                                        dashArray: '5, 5'
-                                    }
-                                }).addTo(savedAoisLayerGroup.value);
-                            }
-                        } catch (bufferError) {
-                            console.warn(`Failed to create single buffer:`, bufferError);
                         }
                     }
                 }
@@ -454,6 +523,8 @@ const loadExistingAOIs = (aois, shouldFitBounds = false) => {
         map.value.setView([21.5937, 80.9629], 5);
     }
 };
+
+
 const clearUnsavedLayer = () => {
     if (drawnItems.value) {
         drawnItems.value.clearLayers();

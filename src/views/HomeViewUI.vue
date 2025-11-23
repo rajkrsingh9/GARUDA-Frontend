@@ -111,7 +111,6 @@ const handleLogout = () => {
 
 
 <style scoped>
-/* Custom styles for an extra visual lift and to ensure pointer styling */
 .action-card {
     cursor: pointer;
 }

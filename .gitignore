@@ -1,8 +1,8 @@
 # ------------------------------------
 # Node.js Dependencies and Build Artifacts
 # ------------------------------------
-./node_modules
-./node_modules
+/node_modules
+/node_modules
 /backend/dist
 /frontend/dist
 
@@ -17,6 +17,7 @@
 npm-debug.log
 .DS_Store
 
+/package-lock.json
 # ------------------------------------
 # Kafka/Debezium/Temporary Files (Outside the project folder)
 # These were temporary and should not be tracked, but listing here for safety

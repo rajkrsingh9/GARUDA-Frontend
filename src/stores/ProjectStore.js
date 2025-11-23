@@ -1,4 +1,4 @@
-// stores/ProjectStore.js
+// stores/ProjectStore.js - Updated to handle auxData properly
 
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
@@ -11,7 +11,7 @@ const api = ApiClient.getInstance();
 
 /**
  * Maps backend data to ProjectFormData for editing
- * FIXED: Proper user and role mapping
+ * FIXED: Proper auxData handling
  */
 function mapBackendToForm(data) {
     const form = new ProjectFormData(true, data.id);
@@ -24,23 +24,21 @@ function mapBackendToForm(data) {
         value: typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)
     })) : [];
 
-    // Step 2: Users with Roles (FIXED)
+    // Step 2: Users with Roles
     form.users = (data.users || []).map(user => {
-        // Handle both object format {userId, roles} and string format
         if (typeof user === 'object' && user.userId) {
             return {
                 userId: user.userId,
                 roles: user.roles || []
             };
         }
-        // Legacy string format
         return {
             userId: user,
             roles: []
         };
     });
 
-    // Step 3: AOIs
+    // Step 3: AOIs - FIXED to handle auxData
     let aoiCounter = 1;
     form.aoiDrafts = data.aois.map((aoi) => {
         let geometry = aoi.geomGeoJson;
@@ -77,12 +75,18 @@ function mapBackendToForm(data) {
         aoiDraft.aoiId = aoi.aoi_id;
         aoiDraft.dbId = aoi.id;
         aoiDraft.status = aoi.status || 1;
+        
+        // CRITICAL: Store original coordinates and other geometry properties
         aoiDraft.geomProperties = {
             ...(aoi.geom_properties || {}),
             originalType: geometryType,
             buffer: bufferDistance,
-            bufferConfig: aoi.geom_properties?.bufferConfig || null
+            bufferConfig: aoi.geom_properties?.bufferConfig || null,
+            originalCoordinates: aoi.geom_properties?.originalCoordinates || null
         };
+
+        // CRITICAL: Set auxData separately
+        aoiDraft.setAuxData(aoi.auxdata || null);
 
         return aoiDraft;
     }).filter(draft => draft !== null);
@@ -144,8 +148,11 @@ export const useProjectStore = defineStore('project', () => {
         console.log("User Count:", bundle.userData.length);
         console.log("AOI Count:", bundle.aoiData.length);
         console.log("Subscription Count:", bundle.subscriptionData?.length || 0);
-        console.log("Users:", JSON.stringify(bundle.userData, null, 2));
-        console.log("Subscriptions:", JSON.stringify(bundle.subscriptionData, null, 2));
+        console.log("AOI Details:", JSON.stringify(bundle.aoiData.map(a => ({
+            name: a.name,
+            hasAuxData: !!a.auxData,
+            hasOriginalCoords: !!a.geomProperties?.originalCoordinates
+        })), null, 2));
         console.log("------------------------");
 
         try {
@@ -185,7 +192,8 @@ export const useProjectStore = defineStore('project', () => {
             console.log('[ProjectStore] Mapped form data:', {
                 users: projectForm.value.users.length,
                 aois: projectForm.value.aoiDrafts.length,
-                subscriptions: projectForm.value.subscriptions.length
+                subscriptions: projectForm.value.subscriptions.length,
+                aoisWithAuxData: projectForm.value.aoiDrafts.filter(a => a.auxData).length
             });
         } catch (error) {
             console.error(`Error loading project ${projectId}:`, error);

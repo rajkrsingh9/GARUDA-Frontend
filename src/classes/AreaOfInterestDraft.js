@@ -1,4 +1,4 @@
-// AreaOfInterestDraft.js - Fixed for multi-polygon support
+// classes/AreaOfInterestDraft.js - Updated to store auxData and original coordinates
 
 export class AreaOfInterestDraft {
     clientAoiId;
@@ -10,6 +10,7 @@ export class AreaOfInterestDraft {
     bufferDistance = null;
     geometryType = 'Polygon';
     geomProperties = {};
+    auxData = null; // NEW: Store auxiliary data separately
     status = 1;
     dbId = null;
 
@@ -24,7 +25,6 @@ export class AreaOfInterestDraft {
         this.name = name;
         this.aoiId = `aoi-${clientAoiId}`;
         
-        // CRITICAL FIX: Ensure geometry is properly assigned
         if (!geometry) {
             throw new Error(`AOI ${name} must have valid geometry`);
         }
@@ -96,8 +96,14 @@ export class AreaOfInterestDraft {
         });
     }
 
+    /**
+     * NEW: Set auxiliary data for this AOI
+     */
+    setAuxData(auxData) {
+        this.auxData = auxData;
+    }
+
     toBackendData() {
-        // CRITICAL FIX: Ensure geometry is valid before sending to backend
         if (!this.geometry) {
             throw new Error(`Cannot serialize AOI ${this.name} - missing geometry`);
         }
@@ -113,6 +119,7 @@ export class AreaOfInterestDraft {
             }
         }
 
+        // CRITICAL: Store original coordinates in geomProperties
         const geomProps = {
             ...this.geomProperties,
             originalType: this.geometryType,
@@ -123,8 +130,9 @@ export class AreaOfInterestDraft {
             aoiId: this.aoiId,
             dbId: this.dbId,
             name: this.name,
-            geomGeoJson: this.geometry, // Use validated geometry
+            geomGeoJson: this.geometry,
             geomProperties: geomProps,
+            auxData: this.auxData, // NEW: Send auxData separately
             status: this.status,
             mappedAlgorithms: this.mappedAlgorithms.map(a => ({
                 algoId: a.algoId,
