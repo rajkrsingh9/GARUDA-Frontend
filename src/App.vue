@@ -25,6 +25,8 @@ const startSSE = (userId) => {
     }
 
     console.log(`[SSE] Starting connection for user: ${userId}`);
+    const API_BASE = 'http://192.168.1.10:3000'; 
+    // const source = new EventSource(`${API_BASE}/api/alerts/events/${userId}`);
     const source = new EventSource(`/api/alerts/events/${userId}`);
 
     source.onmessage = function (event) {

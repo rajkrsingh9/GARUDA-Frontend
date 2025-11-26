@@ -5,19 +5,32 @@ import axios from 'axios';
  * ApiClient: Manages all API calls, including setting headers for authentication.
  * Updated for subscription-based flow.
  */
+
 export class ApiClient {
     client;
     static instance;
     userId = null;
-    
+
+
+
     constructor() {
-        this.client = axios.create({
-            baseURL: 'http://localhost:3000/api',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
-    }
+        this.client = axios.create({
+            // Change 5: Replace localhost with your machine's actual network IP
+            baseURL: '/api', 
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+    }
+    
+    // constructor() {
+    //     this.client = axios.create({
+    //         baseURL: 'http://localhost:3000/api',
+    //         headers: {
+    //             'Content-Type': 'application/json',
+    //         },
+    //     });
+    // }
 
     static getInstance() {
         if (!ApiClient.instance) {

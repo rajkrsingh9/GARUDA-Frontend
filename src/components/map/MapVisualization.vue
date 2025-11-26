@@ -151,6 +151,7 @@ const initializeMap = () => {
 
         // map.value.setView([p.coords.latitude, p.coords.longitude], 5);
     }
+    map.value.setView([22.57, 88.36], 5);
 
     L.DomUtil.addClass(map.value.getPane('tilePane'), 'leaflet-pane-hardware-accel');
 };

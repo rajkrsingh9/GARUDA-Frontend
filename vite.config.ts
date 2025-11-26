@@ -1,3 +1,4 @@
+// GARUDA-Frontend/vite.config.ts
 import { fileURLToPath, URL } from 'node:url';
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
@@ -8,9 +9,9 @@ export default defineConfig({
   plugins: [
     vue(),
     tailwindcss(),
-
   ],
   server: {
+    host: '0.0.0.0',
     // CRITICAL: Configure the proxy here
     proxy: {
       // Proxy all requests starting with /api to the backend Express server
