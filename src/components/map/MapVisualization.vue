@@ -38,6 +38,7 @@ const props = defineProps({
     aoisToDisplay: Array,
     accumulatedGeometries: Array, // NEW: Display multi-polygon progress
     isMonitorMode: Boolean,
+    alertFeaturesToDisplay: Array,
 });
 
 const emit = defineEmits(['aoi-drawn', 'aoi-clicked']);
@@ -49,6 +50,7 @@ const accumulatedLayerGroup = ref(null); // NEW: Layer for accumulated geometrie
 const mapDiv = ref(null);
 const isFullscreen = ref(false);
 const drawControlRef = ref(null);
+const alertFeaturesLayerGroup = ref(null);
 
 const safePatch = (handler) => {
     if (handler && handler.prototype && !handler.prototype._fireCreatedEvent) {
@@ -126,6 +128,9 @@ const initializeMap = () => {
     savedAoisLayerGroup.value = new L.FeatureGroup();
     map.value.addLayer(savedAoisLayerGroup.value);
 
+    alertFeaturesLayerGroup.value = new L.FeatureGroup();
+    map.value.addLayer(alertFeaturesLayerGroup.value);
+
     accumulatedLayerGroup.value = new L.FeatureGroup(); // NEW
     map.value.addLayer(accumulatedLayerGroup.value);
 
@@ -151,9 +156,51 @@ const initializeMap = () => {
 
         // map.value.setView([p.coords.latitude, p.coords.longitude], 5);
     }
-    map.value.setView([22.57, 88.36], 5);
+    // map.value.setView([22.57, 88.36], 5);
 
     L.DomUtil.addClass(map.value.getPane('tilePane'), 'leaflet-pane-hardware-accel');
+};
+
+
+const displayAlertFeatures = (features) => {
+    if (!alertFeaturesLayerGroup.value) return;
+
+    alertFeaturesLayerGroup.value.clearLayers();
+    
+    if (!features || features.length === 0) return;
+
+    features.forEach((feature, index) => {
+        try {
+            // Use L.geoJSON to display the feature.
+            const layer = L.geoJSON(feature, {
+                style: {
+                    color: '#ffc107', // Gold/Yellow color for distinct features
+                    weight: 5,
+                    opacity: 1,
+                    fillColor: '#ffc107', 
+                    fillOpacity: 0.5,
+                    dashArray: '10, 5' // Dotted line for distinction
+                },
+                pointToLayer: function (geoJsonPoint, latlng) {
+                    // For Point features, display a large marker
+                    return L.circleMarker(latlng, {
+                        radius: 8,
+                        fillColor: "#ffc107",
+                        color: "#ffc107",
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).bindTooltip(`Alert Feature ${index + 1}`, { permanent: false });
+                },
+                onEachFeature: (feature, layer) => {
+                    layer.bindTooltip(`Alert Feature ${index + 1}`, { permanent: false, direction: 'top' });
+                }
+            });
+            layer.addTo(alertFeaturesLayerGroup.value);
+        } catch (e) {
+            console.error('Failed to display alert GeoJSON feature:', e);
+        }
+    });
 };
 
 const setupDrawingControls = () => {
@@ -568,6 +615,13 @@ onBeforeUnmount(() => {
         map.value = null;
     }
 });
+
+// Watch for alert features and display them
+watch(() => props.alertFeaturesToDisplay, (newFeatures) => {
+    if (map.value) {
+        displayAlertFeatures(newFeatures);
+    }
+}, { deep: true, immediate: true });
 
 // Watch accumulated geometries and visualize them
 watch(() => props.accumulatedGeometries, () => {

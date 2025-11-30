@@ -63,7 +63,7 @@ const submitAuth = async () => {
       </p>
 
       <div class="input-group mb-4">
-        <label for="username" class="block text-gray-400 mb-1">Username (User ID):</label>
+        <label for="username" class="block text-gray-400 mb-1">Username:</label>
         <input 
             id="username" 
             type="text" 

@@ -17,6 +17,7 @@ const apiClient = ApiClient.getInstance();
 const isLoading = ref(true);
 const project = ref(null);
 const projectAlerts = ref([]);
+const alertFeatures = ref([]);
 const showVizPanel = ref(false);
 const activeAoiDetails = ref(null); // Single clicked AOI
 const mapKey = ref(0);
@@ -47,6 +48,7 @@ const closeVizPanel = () => {
     activeAoiDetails.value = null;
     projectAlerts.value = [];
     alertTimeRange.value = { from: null, to: null };
+    alertFeatures.value = [];
     mapKey.value++; 
 };
 
@@ -56,7 +58,11 @@ const fetchAlertsForAoi = async (aoiId) => {
     const { alerts, timeRange } = await apiClient.getProjectAlerts(project.value.id, aoiId);
     projectAlerts.value = alerts;
     alertTimeRange.value = timeRange;
-    console.log('[MonitorMapView] Alerts loaded:', alerts.length);
+    alertFeatures.value = alerts
+        .map(a => a.featureGeoJson)
+        .filter(geojson => geojson && (geojson.type === 'Feature' || geojson.type === 'FeatureCollection'));
+
+    console.log('[MonitorMapView] Alerts loaded:', alerts.length, 'Features found:', alertFeatures.value.length);
   } catch (e) {
     console.error("Failed to load alerts:", e);
   }
@@ -79,7 +85,8 @@ const fetchAlertsForAoi = async (aoiId) => {
           :key="mapKey"
           :aois-to-display="project.aois" 
           :is-monitor-mode="true" 
-          @aoi-clicked="handleAoiClick" 
+          @aoi-clicked="handleAoiClick"
+          :alert-features-to-display="alertFeatures" 
         />
       </div>
 
