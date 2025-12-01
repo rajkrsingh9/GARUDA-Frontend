@@ -1,6 +1,6 @@
 <!-- frontend/src/components/common/NotificationDropdown.vue -->
 <script setup>
-import { ref, computed, nextTick } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useProjectStore } from '@/stores/ProjectStore.js';
 import { useRouter } from 'vue-router';
 
@@ -16,20 +16,15 @@ const expandedAlertIds = ref([]);
 const alerts = computed(() => projectStore.activeAlerts);
 const totalAlerts = computed(() => projectStore.totalAlerts);
 
-const focusDropdown = () => {
-    nextTick(() => {
-        const dropdownContent = dropdownRef.value?.querySelector('.absolute');
-        if (dropdownContent) {
-            dropdownContent.focus();
-        }
-    });
-};
-
 // Toggle the dropdown visibility
 const toggleDropdown = () => {
     isDropdownOpen.value = !isDropdownOpen.value;
-    if (isDropdownOpen.value) {
-        focusDropdown();
+};
+
+// Close dropdown when clicking outside
+const handleClickOutside = (event) => {
+    if (dropdownRef.value && !dropdownRef.value.contains(event.target)) {
+        isDropdownOpen.value = false;
     }
 };
 
@@ -63,7 +58,6 @@ const markAsRead = async (alert) => {
         }
     }
 };
-
 
 /**
  * Handles navigation when the main text area is clicked.
@@ -113,19 +107,17 @@ const formatMessage = (msg) => {
     }));
 };
 
-const closeOnFocusOut = () => {
-    // A small delay is sometimes needed to check if focus moved to a child element
-    setTimeout(() => {
-        const isFocusInside = dropdownRef.value.contains(document.activeElement);
-        if (!isFocusInside) {
-            isDropdownOpen.value = false;
-        }
-    }, 0);
-};
+// Lifecycle hooks
+onMounted(() => {
+    document.addEventListener('click', handleClickOutside);
+});
 
+onBeforeUnmount(() => {
+    document.removeEventListener('click', handleClickOutside);
+});
 </script>
 
-<template >
+<template>
     <div ref="dropdownRef" class="notification-container z-[200] relative inline-block">
 
         <button @click="toggleDropdown" class="relative transition-colors duration-200 px-2 py-1 z-[2000] rounded-full"
@@ -144,88 +136,91 @@ const closeOnFocusOut = () => {
             </span>
         </button>
 
-        <div v-if="isDropdownOpen" tabindex="-1" @focusout="closeOnFocusOut" class="absolute  bg-black rounded-lg shadow-xl  ring-1 ring-gray ring-opacity-5 
-                    w-72 sm:w-80 right-0 max-w-[calc(100vw-20px)]">
-            <div class="p-3 flex items-center justify-between border-b border-gray-600">
+        <!-- Dropdown Menu with Transition -->
+        <Transition
+            enter-active-class="transition ease-out duration-100"
+            enter-from-class="transform opacity-0 scale-95"
+            enter-to-class="transform opacity-100 scale-100"
+            leave-active-class="transition ease-in duration-75"
+            leave-from-class="transform opacity-100 scale-100"
+            leave-to-class="transform opacity-0 scale-95">
+            <div v-if="isDropdownOpen" 
+                class="absolute bg-black rounded-lg shadow-xl ring-1 ring-gray ring-opacity-5 w-72 sm:w-80 right-0 max-w-[calc(100vw-20px)]">
+                <div class="p-3 flex items-center justify-between border-b border-gray-600">
 
-                <h3 class="text-lg font-semibold text-white flex-grow text-center">
-                    Alerts
-                </h3>
+                    <h3 class="text-lg font-semibold text-white flex-grow text-center">
+                        Alerts
+                    </h3>
 
-                <div class="p-1.5 border-red-600 bg-red-600 rounded-lg text-xs">
-                    <a @click="isDropdownOpen = false" class="cursor-pointer hover:text-white text-white">
-                        Close
-                    </a>
-                </div>
-            </div>
-
-            <div class="max-h-80 overflow-y-auto">
-                <div v-if="totalAlerts === 0" class="p-4 text-gray-400 text-left">
-                    No new alerts.
-                </div>
-
-                <div v-for="alert in alerts" :key="alert.id"
-                    class="flex flex-col border-b border-gray-600 transition duration-150">
-                    <div class="flex items-start justify-between p-3">
-
-                        <div @click="handleNavigationClick(alert)" class="flex-grow pr-3 cursor-pointer">
-                            <p class="text-sm font-bold text-cyan-100 text-left break-words">
-                                <span class="text-red">{{ alert.project_name || alert.projectId }}</span>:
-                                <span class="text-olive">{{ alert.aoi_name || alert.aoiId }}</span> has an
-                                Alert for <span class="text-green">{{ alert.channelName }}</span>
-                            </p>
-                            <p class="text-xs text-start text-white mt-1 ">
-                                {{ new Date(alert.timestamp).toLocaleTimeString() }} {{ new
-                                    Date(alert.timestamp).toLocaleDateString() }}
-                            </p>
-                        </div>
-
-
-                        <div class="flex flex-col space-y-2 items-center flex-shrink-0">
-                            <button @click.stop="markAsRead(alert)"
-                                class="text-red-400 hover:text-red-300 p-1 rounded-full w-6 h-6 flex items-center justify-center"
-                                title="Dismiss Alert">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                    xmlns="http://www.w3.org/2000/svg">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M6 18L18 6M6 6l12 12"></path>
-                                </svg>
-                            </button>
-
-                            <button @click.stop="toggleExpand(alert.id)"
-                                class="text-gray-400 hover:text-white p-1 rounded-full w-6 h-6 flex items-center justify-center transition duration-200"
-                                :title="expandedAlertIds.includes(alert.id) ? 'Collapse Details' : 'Expand Details'">
-                                <svg class="w-4 h-4 transition-transform duration-200"
-                                    :class="{ 'rotate-180': expandedAlertIds.includes(alert.id) }" fill="none"
-                                    stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M19 9l-7 7-7-7"></path>
-                                </svg>
-                            </button>
-                        </div>
+                    <div class="p-1.5 border-red-600 bg-red-600 rounded-lg text-xs">
+                        <a @click="isDropdownOpen = false" class="cursor-pointer hover:text-white text-white">
+                            Close
+                        </a>
                     </div>
-                    <div v-if="expandedAlertIds.includes(alert.id)"
-                        class="p-3 pt-0 bg-gray-600/50 text-white border-t border-gray-600">
+                </div>
 
-                        <p class="text-xs font-semibold mb-1 text-cyan-200">Alert Details:</p>
+                <div class="max-h-80 overflow-y-auto">
+                    <div v-if="totalAlerts === 0" class="p-4 text-gray-400 text-left">
+                        No new alerts.
+                    </div>
 
-                        <div class="max-h-40 overflow-y-auto space-y-1 p-2 bg-gray-700 rounded">
-                            <div v-for="{ key, value } in formatMessage(alert.message)" :key="key"
-                                class="text-xs leading-tight">
-                                <span class="font-semibold text-cyan-300">{{ key }}:</span>
-                                <span class="text-gray-200 break-words ml-1">{{ value }}</span>
+                    <div v-for="alert in alerts" :key="alert.id"
+                        class="flex flex-col border-b border-gray-600 transition duration-150">
+                        <div class="flex items-start justify-between p-3">
+
+                            <div @click="handleNavigationClick(alert)" class="flex-grow pr-3 cursor-pointer">
+                                <p class="text-sm font-bold text-cyan-100 text-left break-words">
+                                    <span class="text-red">{{ alert.project_name || alert.projectId }}</span>:
+                                    <span class="text-olive">{{ alert.aoi_name || alert.aoiId }}</span> has an
+                                    Alert for <span class="text-green">{{ alert.channelName }}</span>
+                                </p>
+                                <p class="text-xs text-start text-white mt-1 ">
+                                    {{ new Date(alert.timestamp).toLocaleTimeString() }} {{ new
+                                        Date(alert.timestamp).toLocaleDateString() }}
+                                </p>
+                            </div>
+
+
+                            <div class="flex flex-col space-y-2 items-center flex-shrink-0">
+                                <button @click.stop="markAsRead(alert)"
+                                    class="text-red-400 hover:text-red-300 p-1 rounded-full w-6 h-6 flex items-center justify-center"
+                                    title="Dismiss Alert">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                        xmlns="http://www.w3.org/2000/svg">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                </button>
+
+                                <button @click.stop="toggleExpand(alert.id)"
+                                    class="text-gray-400 hover:text-white p-1 rounded-full w-6 h-6 flex items-center justify-center transition duration-200"
+                                    :title="expandedAlertIds.includes(alert.id) ? 'Collapse Details' : 'Expand Details'">
+                                    <svg class="w-4 h-4 transition-transform duration-200"
+                                        :class="{ 'rotate-180': expandedAlertIds.includes(alert.id) }" fill="none"
+                                        stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div v-if="expandedAlertIds.includes(alert.id)"
+                            class="p-3 pt-0 bg-gray-600/50 text-white border-t border-gray-600">
+
+                            <p class="text-xs font-semibold mb-1 text-cyan-200">Alert Details:</p>
+
+                            <div class="max-h-40 text-left overflow-y-auto space-y-1 p-2 bg-gray-700 rounded">
+                                <div v-for="{ key, value } in formatMessage(alert.message)" :key="key"
+                                    class="text-xs leading-tight">
+                                    <span class="font-semibold text-cyan-300">{{ key }}:</span>
+                                    <span class="text-gray-200 break-words ml-1">{{ value }}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-
-
-
-
                 </div>
             </div>
-
-
-        </div>
+        </Transition>
     </div>
 </template>
 

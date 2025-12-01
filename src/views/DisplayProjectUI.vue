@@ -261,11 +261,11 @@ const handleDelete = async (projectId, projectName) => {
                             {{ project.index }}.
                         </span>
 
-                        <div class="flex flex-col min-w-0 flex-grow">
+                        <div class="flex flex-col text-left min-w-0 flex-grow">
                             <h3 class="text-xl font-bold text-white truncate">{{ project.project_name }}</h3>
                             
                             <p class="text-sm text-gray-400 truncate mt-1">
-                                <span class="hidden sm:inline">| Last Modified: {{ project.last_modified_timestamp ? new Date(project.last_modified_timestamp).toLocaleDateString() : 'N/A' }}</span>
+                                <span class="hidden sm:inline">Last Modified: {{ project.last_modified_timestamp ? new Date(project.last_modified_timestamp).toLocaleDateString() : 'N/A' }}</span>
                                 <span class="block sm:hidden text-xs italic">{{ project.description || 'No description.' }}</span>
                             </p>
                         </div>

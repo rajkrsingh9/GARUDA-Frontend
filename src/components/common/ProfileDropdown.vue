@@ -1,3 +1,4 @@
+<!-- GARUDA-Frontend/src/components/common/ProfileDropdown.vue -->
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import { useRouter } from 'vue-router';
