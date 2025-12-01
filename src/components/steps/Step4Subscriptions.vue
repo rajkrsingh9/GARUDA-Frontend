@@ -1,9 +1,11 @@
+<!-- GARUDA-Frontend/src/components/steps/Step4Subscriptions.vue -->
+
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import { ApiClient } from '@/api/ApiClient.js';
 import { useMessageStore } from '@/stores/MessageStore.js';
 import { useProjectStore } from '@/stores/ProjectStore.js';
-import CustomSelect from '@/components/common/CustomSelect.vue'; // Retained for AOI selection, but removed from modal as per UX change
+import CustomSelect from '@/components/common/CustomSelect.vue';
 
 const props = defineProps({
     projectData: Object,
@@ -15,7 +17,7 @@ const filterChannel = ref("all");
 const filterUser = ref("all");
 
 // --- State for Modal (New Subscription Inputs) ---
-const showAddSubscriptionModal = ref(false); // Controls the new "Add Subscription" modal
+const showAddSubscriptionModal = ref(false);
 const selectedAOIForAdd = ref(null);
 const selectedChannelForAdd = ref(null);
 const selectedUsersForAdd = ref([]);
@@ -35,7 +37,6 @@ watch(selectedAOIForAdd, (newAoi) => {
     }
 });
 
-
 const availableUsers = computed(() =>
     props.projectData.users.map(user =>
         typeof user === 'object' ? user.userId : user
@@ -49,7 +50,6 @@ const getAoiName = (clientAoiId) => {
 };
 
 const allProjectSubscriptions = computed(() => {
-    // Subscriptions with status 0 (soft-deleted/inactive) and 1 (active)
     return props.projectData.subscriptions.filter(sub => sub.status !== 2);
 });
 
@@ -58,7 +58,6 @@ const allAoiSubscriptionsForAdd = computed(() => {
     if (!selectedAOIForAdd.value) return [];
     return props.projectData.getSubscriptionsForAoi(selectedAOIForAdd.value.clientAoiId, true);
 });
-
 
 // Filter for channels that are currently active (status = 1) for the *selected AOI in the modal*
 const subscribedChannelIdsForAdd = computed(() => {
@@ -82,11 +81,28 @@ const groupedAvailableChannelsForAdd = computed(() => {
     return groups;
 });
 
+// Flatten channels with category headers for CustomSelect
+const flattenedChannelsForAdd = computed(() => {
+    const flattened = [];
+    Object.entries(groupedAvailableChannelsForAdd.value).forEach(([category, channels]) => {
+        // Add category header
+        flattened.push({
+            id: `header-${category}`,
+            channel_name: `── ${category} ──`,
+            isHeader: true
+        });
+        // Add channels in that category
+        channels.forEach(channel => {
+            flattened.push(channel);
+        });
+    });
+    return flattened;
+});
 
 // --- Logic for Main Component List (Active Subscriptions) ---
 
 const filteredAndGroupedSubscriptions = computed(() => {
-    let subs = props.projectData.subscriptions.filter(s => s.status !== 2); // Status 0 or 1
+    let subs = props.projectData.subscriptions.filter(s => s.status !== 2);
 
     // Apply AOI Filter
     if (filterAoi.value !== 'all') {
@@ -105,7 +121,6 @@ const filteredAndGroupedSubscriptions = computed(() => {
 
     // Group by AOI
     const groups = {};
-
     subs.forEach(sub => {
         const name = getAoiName(sub.clientAoiId);
         if (!groups[name]) groups[name] = [];
@@ -125,7 +140,7 @@ onMounted(async () => {
         if (props.projectData.aoiDrafts.length > 0) {
             const firstAoi = props.projectData.aoiDrafts.filter(a => a.status !== 2)[0];
             selectedAOIForAdd.value = firstAoi;
-            filterAoi.value = firstAoi.clientAoiId; // Also set the default filter
+            filterAoi.value = firstAoi.clientAoiId;
         }
     } catch (e) {
         error.value = "Failed to load alert channels.";
@@ -176,7 +191,6 @@ const saveSubscriptionFromModal = () => {
     }
 
     // Reset modal state and close modal
-    // Note: selectedAOIForAdd is NOT reset to maintain context if user wants to add another
     selectedChannelForAdd.value = null;
     selectedUsersForAdd.value = [];
     showAddSubscriptionModal.value = false;
@@ -233,19 +247,34 @@ const handleAoiChangeInModal = () => {
     selectedUsersForAdd.value = [];
 };
 
-// Filter options for the main component's channel filter
-const channelFilterOptions = computed(() => {
-    return [{ id: 'all', channel_name: 'All Channels' }, ...alertChannels.value];
-});
-
-// Filter options for the main component's AOI filter
+// Filter options for the main component's filters with "All" option
 const aoiFilterOptions = computed(() => {
-    return [{ clientAoiId: 'all', name: 'All AOIs' }, ...availableAOIs.value];
+    return [
+        { clientAoiId: 'all', name: `All AOIs (${availableAOIs.value.length})` },
+        ...availableAOIs.value
+    ];
 });
 
-// Filter options for the main component's user filter
+const channelFilterOptions = computed(() => {
+    return [
+        { id: 'all', channel_name: `All Channels (${alertChannels.value.length})` },
+        ...alertChannels.value
+    ];
+});
+
 const userFilterOptions = computed(() => {
-    return ['all', ...availableUsers.value];
+    return [
+        'all',
+        ...availableUsers.value
+    ];
+});
+
+// Formatted user options for CustomSelect
+const formattedUserFilterOptions = computed(() => {
+    return userFilterOptions.value.map(user => ({
+        userId: user,
+        displayName: user === 'all' ? `All Users (${availableUsers.value.length})` : user
+    }));
 });
 
 </script>
@@ -283,32 +312,33 @@ const userFilterOptions = computed(() => {
             <div class="flex-grow flex flex-col min-h-0 gap-3">
 
                 <div class="px-2">
-                    <!-- <h4 class="text-gray-300 font-semibold  text-base">Filter Subscriptions:</h4> -->
                     <div class="grid grid-cols-3 gap-3">
-                        <select v-model="filterAoi"
-                            class="bg-gray-700 text-gray-200 p-1 rounded-lg border border-gray-600 text-sm">
-                            <option value="all">All AOIs ({{ availableAOIs.length }})</option>
-                            <option v-for="aoi in availableAOIs" :key="aoi.clientAoiId"
-                                :value="aoi.clientAoiId">
-                                {{ aoi.name }}
-                            </option>
-                        </select>
+                        <!-- AOI Filter with CustomSelect -->
+                        <CustomSelect 
+                            v-model="filterAoi" 
+                            :options="aoiFilterOptions"
+                            value-key="clientAoiId"
+                            label-key="name"
+                            placeholder="Filter by AOI"
+                        />
 
-                        <select v-model="filterChannel"
-                            class="bg-gray-700 text-gray-200 p-2 rounded-lg border border-gray-600 text-sm">
-                            <option value="all">All Channels ({{ alertChannels.length }})</option>
-                            <option v-for="ch in alertChannels" :key="ch.id" :value="ch.id">
-                                {{ ch.channel_name }}
-                            </option>
-                        </select>
+                        <!-- Channel Filter with CustomSelect -->
+                        <CustomSelect 
+                            v-model="filterChannel" 
+                            :options="channelFilterOptions"
+                            value-key="id"
+                            label-key="channel_name"
+                            placeholder="Filter by Channel"
+                        />
 
-                        <select v-model="filterUser"
-                            class="bg-gray-700 text-gray-200 p-2 rounded-lg border border-gray-600 text-sm">
-                            <option value="all">All Users ({{ availableUsers.length }})</option>
-                            <option v-for="u in availableUsers" :key="u" :value="u">
-                                {{ u }}
-                            </option>
-                        </select>
+                        <!-- User Filter with CustomSelect -->
+                        <CustomSelect 
+                            v-model="filterUser" 
+                            :options="formattedUserFilterOptions"
+                            value-key="userId"
+                            label-key="displayName"
+                            placeholder="Filter by User"
+                        />
                     </div>
                 </div>
 
@@ -341,8 +371,7 @@ const userFilterOptions = computed(() => {
                                 <div class="flex justify-between items-start">
                                     <div>
                                         <div class="flex items-center gap-2">
-                                            <span>{{ getCategoryIcon(getChannelCategory(sub.channelId))
-                                                }}</span>
+                                            <span>{{ getCategoryIcon(getChannelCategory(sub.channelId)) }}</span>
                                             <span class="text-white font-semibold text-sm">
                                                 {{ getChannelName(sub.channelId) }}
                                             </span>
@@ -380,6 +409,7 @@ const userFilterOptions = computed(() => {
             </div>
         </div>
 
+        <!-- Add Subscription Modal -->
         <div v-if="showAddSubscriptionModal"
             class="fixed inset-0 bg-black bg-opacity-70 z-30 flex items-center justify-center">
             <div @click.stop
@@ -401,9 +431,14 @@ const userFilterOptions = computed(() => {
                         <label class="text-gray-300 text-sm font-semibold mb-2 block">
                             Area of Interest (AOI): <span class="text-red-400">*</span>
                         </label>
-                        <CustomSelect v-model="selectedAOIForAdd" :options="availableAOIs" value-key="clientAoiId"
-                            label-key="name" placeholder="Choose an Area of Interest"
-                            @update:model-value="handleAoiChangeInModal" />
+                        <CustomSelect 
+                            v-model="selectedAOIForAdd" 
+                            :options="availableAOIs" 
+                            value-key="clientAoiId"
+                            label-key="name" 
+                            placeholder="Choose an Area of Interest"
+                            @update:model-value="handleAoiChangeInModal" 
+                        />
                     </div>
 
                     <div v-if="selectedAOIForAdd">
@@ -411,17 +446,13 @@ const userFilterOptions = computed(() => {
                             <label class="text-gray-300 text-sm font-semibold mb-2 block">
                                 Alert Channel: <span class="text-red-400">*</span>
                             </label>
-                            <select v-model="selectedChannelForAdd"
-                                class="w-full px-3 py-2 bg-gray-700 text-white text-sm rounded-lg border border-gray-600 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition disabled:opacity-50"
-                                :disabled="loadingChannels">
-                                <option :value="null" disabled>Select a channel</option>
-                                <optgroup v-for="(channels, category) in groupedAvailableChannelsForAdd" :key="category"
-                                    :label="category">
-                                    <option v-for="channel in channels" :key="channel.id" :value="channel">
-                                        {{ channel.channel_name }}
-                                    </option>
-                                </optgroup>
-                            </select>
+                            <CustomSelect 
+                                v-model="selectedChannelForAdd" 
+                                :options="flattenedChannelsForAdd"
+                                value-key="id"
+                                label-key="channel_name"
+                                placeholder="Select a channel"
+                            />
                             <p v-if="loadingChannels" class="text-gray-400 text-xs mt-1">Loading channels...</p>
                             <p v-else-if="availableChannelsForAdd.length === 0" class="text-yellow-400 text-xs mt-1">
                                 All available channels are already subscribed for this AOI.
@@ -467,7 +498,6 @@ const userFilterOptions = computed(() => {
 </template>
 
 <style scoped>
-/* Scoped styles remain mostly the same */
 .h-\[70vh\] {
     height: 70vh;
 }
@@ -492,31 +522,5 @@ const userFilterOptions = computed(() => {
 
 .transition-all {
     transition: all 0.2s ease-in-out;
-}
-
-select {
-    /* Retaining custom select appearance */
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 0.5rem center;
-    background-size: 1.5em 1.5em;
-    padding-right: 2.5rem;
-}
-
-select:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-optgroup {
-    font-weight: bold;
-    color: #06b6d4;
-}
-
-option {
-    font-weight: normal;
-    color: white;
-    background-color: #374151;
 }
 </style>

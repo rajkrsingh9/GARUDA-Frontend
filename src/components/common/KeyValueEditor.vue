@@ -11,22 +11,17 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['save', 'cancel']);
-
-// Internal state for the editor, which is an array of {key, value} objects
 const argFields = ref([]);
 
 /**
  * Converts the initial object (prop) into the local array state.
  */
 const loadInitialData = () => {
-    // Convert object to array of {key, value} for v-for looping
     const newFields = Object.entries(props.initialData).map(([key, value]) => ({
         key,
         value: typeof value === 'object' ? JSON.stringify(value) : String(value),
         id: Math.random().toString(36).substring(7) // Simple unique ID for the key
     }));
-    // Add one empty field at the end for immediate addition
-    // newFields.push({ key: '', value: '', id: Math.random().toString(36).substring(7) });
     argFields.value = newFields;
 };
 
@@ -41,14 +36,11 @@ const finalizeArguments = () => {
         const key = field.key.trim();
         let value = field.value.trim();
         
-        // Attempt to parse non-string values (numbers, booleans, objects)
         try {
-            // If the value looks like a JSON object or array, parse it
             if (value.startsWith('{') || value.startsWith('[') || value === 'true' || value === 'false' || !isNaN(value)) {
                 value = JSON.parse(value);
             }
         } catch (e) {
-            // Keep it as a string if parsing fails, but warn (optional)
             console.warn(`Argument for key "${key}" could not be parsed as JSON/Number. Kept as string.`);
         }
         

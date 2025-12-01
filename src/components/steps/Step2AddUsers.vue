@@ -4,7 +4,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { ApiClient } from '@/api/ApiClient.js';
 import { useMessageStore } from '@/stores/MessageStore.js';
 import { UserSession } from '@/classes/UserSession.js';
-import RoleSelectionPopup from './RoleSelectionPopup.vue';
+import RoleSelectionPopup from '../common/RoleSelectionPopup.vue';
 
 const props = defineProps({
     projectData: Object,

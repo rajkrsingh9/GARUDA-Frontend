@@ -5,6 +5,7 @@ import { onMounted, ref, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useProjectStore } from '@/stores/ProjectStore.js';
 import CustomSelect from '../components/common/CustomSelect.vue';
+import { UserSession } from '@/classes/UserSession.js';
 
 const sortOptions = [
     { label: 'Sort by Name', value: 'project_name' },
@@ -15,6 +16,7 @@ const sortOptions = [
 const router = useRouter();
 const route = useRoute();
 const projectStore = useProjectStore();
+const session = UserSession.getInstance();
 
 // UI State
 const isLoading = ref(true);
@@ -144,18 +146,34 @@ const handleDelete = async (projectId, projectName) => {
         }
     }
 };
+
+const goToHome = () => {
+    if (session.isLoggedIn) {
+        router.push('/');
+    }
+};
+
+
 </script>
 <template>
     <div id="manage-view" class="h-[85vh] text-white flex-col justify-start bg-gray-900">
         <div class="sticky top-0 z-10 w-full p-3 shadow-2xl flex justify-center items-center"
             :class="{ 'bg-orange-600/90': !isMonitorMode, 'bg-[#b49400]/90': isMonitorMode }">
+
+            <div class="absolute pl-3 left-0 text-gray-100 items-center  cursor-pointer" @click="goToHome">
+                <svg xmlns="http://www.w3.org/2000/svg" width="4vh" height="3.7vh" fill="currentColor"
+                    viewBox="0 0 16 16">
+                    <path fill-rule="evenodd"
+                        d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z" />
+                </svg>
+            </div>
             <h1 class="text-3xl font-extrabold text-white tracking-wide">
                 {{ isMonitorMode ? 'Monitor Projects' : 'Manage Projects' }}
             </h1>
         </div>
 
         <div class="w-full max-w-4xl h-[80vh] pb-2 mx-auto px-4 relative">
-            
+
             <div class="flex items-center mb-2 gap-3 p-2 rounded-xl shadow-lg">
 
                 <div class="relative flex-1">
@@ -163,7 +181,7 @@ const handleDelete = async (projectId, projectName) => {
                         class="w-full pl-10 pr-10 py-2 rounded-xl bg-gray-700 text-white 
                            border border-gray-600 focus:ring-cyan-500 focus:border-cyan-500 
                            transition duration-200 shadow-inner text-sm" />
-                    
+
                     <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none"
                         stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -181,23 +199,22 @@ const handleDelete = async (projectId, projectName) => {
                 </div>
 
                 <div class="relative flex-shrink-0">
-                    <button @click="toggleSortDropdown"
-                        class="flex items-center gap-2 px-3 bg-gray-700 hover:bg-gray-600 
+                    <button @click="toggleSortDropdown" class="flex items-center gap-2 px-3 bg-gray-700 hover:bg-gray-600 
                                border border-gray-600 rounded-xl text-white transition duration-200 text-sm h-10"
                         title="Sort Options">
-                        
+
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M3 4h18M3 8h18m-6 4h6m-6 4h6"></path>
                         </svg>
-                        
+
                         <span class="hidden sm:inline">{{ currentSortLabel.replace('Sort by ', '') }}</span>
 
                         <svg class="w-3 h-3 transition-transform duration-200"
                             :class="{ 'rotate-180': showSortDropdown }" fill="none" stroke="currentColor"
                             viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M19 9l-7 7-7-7"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7">
+                            </path>
                         </svg>
                     </button>
 
@@ -207,9 +224,9 @@ const handleDelete = async (projectId, projectName) => {
                             <button v-for="option in sortOptions" :key="option.value"
                                 @click="handleSortSelection(option.value)" class="w-full px-4 py-2 text-left text-sm hover:bg-gray-700 
                                        transition duration-150 flex items-center justify-between" :class="{
-                                'bg-cyan-900/30 text-cyan-400 font-semibold': sortCriteria.field === option.value,
-                                'text-gray-300': sortCriteria.field !== option.value
-                            }">
+                                        'bg-cyan-900/30 text-cyan-400 font-semibold': sortCriteria.field === option.value,
+                                        'text-gray-300': sortCriteria.field !== option.value
+                                    }">
                                 <span>{{ option.label }}</span>
                                 <svg v-if="sortCriteria.field === option.value" class="w-4 h-4 text-cyan-400"
                                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -220,8 +237,7 @@ const handleDelete = async (projectId, projectName) => {
                         </div>
 
                         <div class="border-t border-gray-700 px-4 py-2 bg-gray-900/50">
-                            <button
-                                @click="sortCriteria.direction = sortCriteria.direction === 'asc' ? 'desc' : 'asc'"
+                            <button @click="sortCriteria.direction = sortCriteria.direction === 'asc' ? 'desc' : 'asc'"
                                 class="w-full flex items-center justify-between text-xs text-gray-300 hover:text-white transition duration-150">
                                 <span class="font-medium">Sort Direction:</span>
                                 <div class="flex items-center gap-1">
@@ -254,19 +270,21 @@ const handleDelete = async (projectId, projectName) => {
                     class="flex justify-between items-center p-4 rounded-xl bg-gray-800 hover:bg-gray-700 transition duration-200 shadow-xl border-l-4 cursor-pointer"
                     @click="handleProjectAction(project)"
                     :class="{ 'border-orange-600/90': !isMonitorMode, 'border-[#b49400]/90': isMonitorMode }">
-                    
+
                     <div class="flex items-center gap-4 min-w-0">
                         <span class="text-2xl font-extrabold flex-shrink-0 w-6 text-right"
-                        :class="{ 'text-orange-600/90': !isMonitorMode, 'text-[#b49400]/90': isMonitorMode }">
+                            :class="{ 'text-orange-600/90': !isMonitorMode, 'text-[#b49400]/90': isMonitorMode }">
                             {{ project.index }}.
                         </span>
 
                         <div class="flex flex-col text-left min-w-0 flex-grow">
                             <h3 class="text-xl font-bold text-white truncate">{{ project.project_name }}</h3>
-                            
+
                             <p class="text-sm text-gray-400 truncate mt-1">
-                                <span class="hidden sm:inline">Last Modified: {{ project.last_modified_timestamp ? new Date(project.last_modified_timestamp).toLocaleDateString() : 'N/A' }}</span>
-                                <span class="block sm:hidden text-xs italic">{{ project.description || 'No description.' }}</span>
+                                <span class="hidden sm:inline">Last Modified: {{ project.last_modified_timestamp ? new
+                                    Date(project.last_modified_timestamp).toLocaleDateString() : 'N/A' }}</span>
+                                <span class="block sm:hidden text-xs italic">{{ project.description || 'No description.'
+                                    }}</span>
                             </p>
                         </div>
                     </div>
@@ -330,12 +348,14 @@ const handleDelete = async (projectId, projectName) => {
 }
 
 .overflow-y-auto::-webkit-scrollbar-thumb {
-    background-color: #4b5563; /* Darker thumb */
+    background-color: #4b5563;
+    /* Darker thumb */
     border-radius: 4px;
 }
 
 .overflow-y-auto::-webkit-scrollbar-track {
-    background-color: #1f2937; /* Dark track */
+    background-color: #1f2937;
+    /* Dark track */
 }
 
 /* Smooth rotation for dropdown arrow */
