@@ -124,7 +124,7 @@ const profileInitials = computed(() => {
         </div>
     </div>
 
-    <main class="app-content h-[86vh] flex-grow flex-col overflow-y-auto" :class="{'': showNavbar}"> 
+    <main class="app-content h-[86vh] content-center flex-grow flex-col overflow-y-auto" :class="{'': showNavbar}"> 
       <RouterView />
     </main>
 
