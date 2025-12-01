@@ -23,14 +23,6 @@ export class ApiClient {
         });
     }
     
-    // constructor() {
-    //     this.client = axios.create({
-    //         baseURL: 'http://localhost:3000/api',
-    //         headers: {
-    //             'Content-Type': 'application/json',
-    //         },
-    //     });
-    // }
 
     static getInstance() {
         if (!ApiClient.instance) {

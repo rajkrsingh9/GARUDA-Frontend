@@ -101,6 +101,11 @@ const disableAllDrawingTools = () => {
     });
 };
 
+
+
+// MapVisualization.vue - FIXED initializeMap function
+// Replace your initializeMap function with this:
+
 const initializeMap = () => {
     if (!mapDiv.value) return;
 
@@ -117,27 +122,28 @@ const initializeMap = () => {
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: false,
         maxZoom: 19,
-
     });
 
     const baseLayers = { 'OpenStreetMap': osmLayer };
     osmLayer.addTo(map.value);
     L.control.layers(baseLayers).addTo(map.value);
 
-    // Initialize layer groups (bottom to top)
+    // CRITICAL FIX: Initialize layer groups in CORRECT z-index order (bottom to top)
+    // Layer at bottom (z-index lowest)
     savedAoisLayerGroup.value = new L.FeatureGroup();
     map.value.addLayer(savedAoisLayerGroup.value);
 
+    // Accumulated geometries (middle layer)
+    accumulatedLayerGroup.value = new L.FeatureGroup();
+    map.value.addLayer(accumulatedLayerGroup.value);
+
+    // CRITICAL: Alert features MUST be added AFTER AOIs to appear on top
     alertFeaturesLayerGroup.value = new L.FeatureGroup();
     map.value.addLayer(alertFeaturesLayerGroup.value);
 
-    accumulatedLayerGroup.value = new L.FeatureGroup(); // NEW
-    map.value.addLayer(accumulatedLayerGroup.value);
-
+    // Drawn items (top layer)
     drawnItems.value = new L.FeatureGroup();
     map.value.addLayer(drawnItems.value);
-
-
 
     if (!props.isMonitorMode) {
         setupDrawingControls();
@@ -150,57 +156,191 @@ const initializeMap = () => {
         }, 50);
     } else {
         navigator.geolocation.getCurrentPosition(
-            p =>
-                map.value.setView([p.coords.latitude, p.coords.longitude], 10)
+            p => {
+                if (map.value) {
+                    map.value.setView([p.coords.latitude, p.coords.longitude], 10);
+                }
+            },
+            err => {
+                console.warn("Location access denied. Falling back to Kolkata.", err);
+                if (map.value) {
+                    map.value.setView([22.57, 88.36], 10);
+                }
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 5000
+            }
         );
-
-        // map.value.setView([p.coords.latitude, p.coords.longitude], 5);
     }
-    // map.value.setView([22.57, 88.36], 5);
 
     L.DomUtil.addClass(map.value.getPane('tilePane'), 'leaflet-pane-hardware-accel');
 };
 
 
 const displayAlertFeatures = (features) => {
-    if (!alertFeaturesLayerGroup.value) return;
+    console.log('[MapViz] displayAlertFeatures called');
+    console.log('[MapViz] alertFeaturesLayerGroup exists?', !!alertFeaturesLayerGroup.value);
+    console.log('[MapViz] map exists?', !!map.value);
+    console.log('[MapViz] Features received:', features);
 
+    if (!alertFeaturesLayerGroup.value) {
+        console.error('[MapViz] alertFeaturesLayerGroup is null!');
+        return;
+    }
+
+    if (!map.value) {
+        console.error('[MapViz] map is null!');
+        return;
+    }
+
+    // Clear existing layers
     alertFeaturesLayerGroup.value.clearLayers();
+    console.log('[MapViz] Cleared existing alert features');
     
-    if (!features || features.length === 0) return;
+    if (!features || features.length === 0) {
+        console.log('[MapViz] No alert features to display (empty or null)');
+        return;
+    }
 
-    features.forEach((feature, index) => {
+    console.log('[MapViz] Displaying', features.length, 'alert features');
+
+    let successCount = 0;
+    let failCount = 0;
+
+    features.forEach((featureData, index) => {
         try {
-            // Use L.geoJSON to display the feature.
-            const layer = L.geoJSON(feature, {
+            console.log(`[MapViz] Processing feature ${index + 1}:`, featureData);
+
+            // Handle different GeoJSON structures
+            let geoJsonToDisplay = featureData;
+
+            if (featureData.type === 'Feature' || featureData.type === 'FeatureCollection') {
+                geoJsonToDisplay = featureData;
+                console.log(`[MapViz] Feature ${index + 1} is already a ${featureData.type}`);
+            }
+            else if (featureData.type && featureData.coordinates) {
+                geoJsonToDisplay = {
+                    type: 'Feature',
+                    geometry: featureData,
+                    properties: {}
+                };
+                console.log(`[MapViz] Feature ${index + 1} wrapped as Feature from Geometry`);
+            }
+            else {
+                console.warn('[MapViz] Unrecognized GeoJSON structure:', featureData);
+                failCount++;
+                return;
+            }
+
+            // Create the layer with VERY VISIBLE styling
+            const layer = L.geoJSON(geoJsonToDisplay, {
                 style: {
-                    color: '#ffc107', // Gold/Yellow color for distinct features
-                    weight: 5,
-                    opacity: 1,
+                    color: '#ffc107',        // Bright gold/yellow
+                    weight: 6,               // INCREASED from 4 to 6 for visibility
+                    opacity: 1,              // Fully opaque
                     fillColor: '#ffc107', 
-                    fillOpacity: 0.5,
-                    dashArray: '10, 5' // Dotted line for distinction
+                    fillOpacity: 0.5,        // INCREASED from 0.4 to 0.5
+                    dashArray: '10, 5',      // INCREASED dash size
+                    className: 'alert-feature-layer'  // Add class for CSS targeting
                 },
                 pointToLayer: function (geoJsonPoint, latlng) {
-                    // For Point features, display a large marker
+                    console.log(`[MapViz] Creating point marker at [${latlng.lat}, ${latlng.lng}]`);
                     return L.circleMarker(latlng, {
-                        radius: 8,
+                        radius: 12,          // INCREASED from 10
                         fillColor: "#ffc107",
-                        color: "#ffc107",
-                        weight: 2,
+                        color: "#ff9800",
+                        weight: 4,           // INCREASED from 3
                         opacity: 1,
-                        fillOpacity: 0.8
-                    }).bindTooltip(`Alert Feature ${index + 1}`, { permanent: false });
+                        fillOpacity: 0.8,
+                        className: 'alert-point-marker'
+                    });
                 },
                 onEachFeature: (feature, layer) => {
-                    layer.bindTooltip(`Alert Feature ${index + 1}`, { permanent: false, direction: 'top' });
+                    const tooltipText = `🚨 Alert ${index + 1}`;
+                    layer.bindTooltip(tooltipText, { 
+                        permanent: true, 
+                        direction: 'center',
+                        className: 'alert-feature-tooltip'
+                    });
+
+                    if (feature.properties && Object.keys(feature.properties).length > 0) {
+                        const popupContent = '<div style="color: black;">' +
+                            Object.entries(feature.properties)
+                                .map(([key, value]) => `<strong>${key}:</strong> ${value}`)
+                                .join('<br>') +
+                            '</div>';
+                        layer.bindPopup(popupContent);
+                    }
+
+                    // Add click handler for debugging
+                    layer.on('click', () => {
+                        console.log(`[MapViz] Alert feature ${index + 1} clicked`);
+                    });
                 }
             });
+
+            // Add to the layer group
             layer.addTo(alertFeaturesLayerGroup.value);
+            successCount++;
+            
+            // console.log(`[MapViz] ✅ Successfully added alert feature ${index + 1}`);
+
+            // Log the bounds of this feature
+            try {
+                const bounds = layer.getBounds();
+                console.log(`[MapViz] Feature ${index + 1} bounds:`, {
+                    north: bounds.getNorth(),
+                    south: bounds.getSouth(),
+                    east: bounds.getEast(),
+                    west: bounds.getWest()
+                });
+            } catch (e) {
+                console.log(`[MapViz] Could not get bounds for feature ${index + 1} (might be a point)`);
+            }
+
         } catch (e) {
-            console.error('Failed to display alert GeoJSON feature:', e);
+            console.error(`[MapViz] ❌ Failed to display alert feature ${index}:`, e);
+            console.error('[MapViz] Failed feature data:', featureData);
+            failCount++;
         }
     });
+
+    console.log(`[MapViz] Summary: ${successCount} succeeded, ${failCount} failed`);
+    console.log('[MapViz] Total layers in alertFeaturesLayerGroup:', 
+                alertFeaturesLayerGroup.value.getLayers().length);
+
+    // CRITICAL: Bring alert features to front
+    if (alertFeaturesLayerGroup.value.getLayers().length > 0) {
+        alertFeaturesLayerGroup.value.bringToFront();
+        console.log('[MapViz] Brought alert features to front');
+    }
+
+    try {
+        if (alertFeaturesLayerGroup.value.getLayers().length > 0) {
+            const bounds = alertFeaturesLayerGroup.value.getBounds();
+            console.log('[MapViz] Alert features bounds:', {
+                north: bounds.getNorth(),
+                south: bounds.getSouth(),
+                east: bounds.getEast(),
+                west: bounds.getWest(),
+                isValid: bounds.isValid()
+            });
+
+            if (bounds && bounds.isValid()) {
+                // FIT BOUNDS with generous padding
+                map.value.fitBounds(bounds, { 
+                    padding: [100, 100],  
+                    maxZoom: 14        
+                });
+                console.log('[MapViz] ✅ Map fitted to alert features bounds');
+            }
+        } else {
+            console.warn('[MapViz] No layers added to fit bounds');
+        }
+    } catch (e) {
+        console.error('[MapViz] ❌ Could not fit bounds to alert features:', e);
+    }
 };
 
 const setupDrawingControls = () => {
@@ -376,7 +516,7 @@ const loadExistingAOIs = (aois, shouldFitBounds = false) => {
                 onEachFeature: (feature, layer) => {
                     layer.options.aoiDetails = aoi;
 
-                    layer.bindTooltip(`AOI: ${aoi.name} (${aoi.mappedAlgorithms?.length || 0} Algos)`, {
+                    layer.bindTooltip(`AOI: ${aoi.name}`, {
                         permanent: false,
                         direction: 'top'
                     });
@@ -616,10 +756,41 @@ onBeforeUnmount(() => {
     }
 });
 
-// Watch for alert features and display them
-watch(() => props.alertFeaturesToDisplay, (newFeatures) => {
-    if (map.value) {
+// MapVisualization.vue - FIXED watch for alert features
+// Replace the existing watch with this version:
+
+watch(() => props.alertFeaturesToDisplay, (newFeatures, oldFeatures) => {
+    console.log('[MapViz] Watch triggered - alertFeaturesToDisplay changed');
+    console.log('[MapViz] Old features:', oldFeatures?.length || 0);
+    console.log('[MapViz] New features:', newFeatures?.length || 0);
+    console.log('[MapViz] Map ready?', !!map.value);
+    console.log('[MapViz] Alert layer ready?', !!alertFeaturesLayerGroup.value);
+    
+    // Only process if we have new features and map is ready
+    if (!newFeatures || newFeatures.length === 0) {
+        console.log('[MapViz] No features to display, clearing layer');
+        if (alertFeaturesLayerGroup.value) {
+            alertFeaturesLayerGroup.value.clearLayers();
+        }
+        return;
+    }
+    
+    if (map.value && alertFeaturesLayerGroup.value) {
+        console.log('[MapViz] Calling displayAlertFeatures with', newFeatures.length, 'features');
         displayAlertFeatures(newFeatures);
+    } else {
+        console.error('[MapViz] Cannot display - map or layer not ready!');
+        console.log('[MapViz] Will retry after 500ms...');
+        
+        // Retry after a delay (map might still be initializing)
+        setTimeout(() => {
+            if (map.value && alertFeaturesLayerGroup.value && newFeatures.length > 0) {
+                console.log('[MapViz] Retry: Calling displayAlertFeatures');
+                displayAlertFeatures(newFeatures);
+            } else {
+                console.error('[MapViz] Retry failed - still not ready');
+            }
+        }, 500);
     }
 }, { deep: true, immediate: true });
 
@@ -704,6 +875,127 @@ watch(() => props.aoisToDisplay?.length, (newLength, oldLength) => {
     width: 100% !important;
     height: 100% !important;
     min-height: 100vh !important;
+}
+
+:deep(.alert-feature-tooltip) {
+    background-color: #ffc107 !important;
+    border: 2px solid #ff9800 !important;
+    color: #000 !important;
+    font-weight: bold !important;
+    padding: 6px 10px !important;
+    border-radius: 6px !important;
+    box-shadow: 0 2px 8px rgba(255, 193, 7, 0.5) !important;
+}
+
+:deep(.alert-feature-tooltip::before) {
+    border-top-color: #ff9800 !important;
+}
+
+/* Ensure alert features are above AOIs but below controls */
+:deep(.leaflet-overlay-pane) {
+    z-index: 400 !important;
+}
+
+/* Highlight effect on hover */
+:deep(.leaflet-interactive:hover) {
+    stroke-width: 6 !important;
+    filter: brightness(1.2);
+}
+
+/* Add these styles to MapVisualization.vue <style scoped> section */
+
+/* CRITICAL: Ensure alert features are ALWAYS on top */
+:deep(.alert-feature-layer) {
+    z-index: 1000 !important;
+    pointer-events: all !important;
+}
+
+:deep(.alert-point-marker) {
+    z-index: 1001 !important;
+    pointer-events: all !important;
+}
+
+/* Enhanced tooltip styling - ALWAYS VISIBLE */
+:deep(.alert-feature-tooltip) {
+    background-color: #ffc107 !important;
+    border: 3px solid #ff9800 !important;
+    color: #000 !important;
+    font-weight: bold !important;
+    font-size: 14px !important;
+    padding: 8px 12px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.8) !important;
+    opacity: 1 !important;
+    z-index: 10000 !important;
+}
+
+:deep(.alert-feature-tooltip::before) {
+    border-top-color: #ff9800 !important;
+}
+
+/* Make alert feature paths highly visible */
+:deep(.leaflet-interactive.alert-feature-layer) {
+    stroke: #ffc107 !important;
+    stroke-width: 6 !important;
+    stroke-opacity: 1 !important;
+    fill: #ffc107 !important;
+    fill-opacity: 0.5 !important;
+    stroke-dasharray: 10, 5 !important;
+    z-index: 1000 !important;
+}
+
+/* Point markers for alerts */
+:deep(.alert-point-marker) {
+    fill: #ffc107 !important;
+    stroke: #ff9800 !important;
+    stroke-width: 4 !important;
+    fill-opacity: 0.8 !important;
+    stroke-opacity: 1 !important;
+}
+
+/* Ensure alert layer pane is on top */
+:deep(.leaflet-overlay-pane) {
+    z-index: 400 !important;
+}
+
+:deep(.leaflet-marker-pane) {
+    z-index: 600 !important;
+}
+
+:deep(.leaflet-tooltip-pane) {
+    z-index: 650 !important;
+}
+
+:deep(.leaflet-popup-pane) {
+    z-index: 700 !important;
+}
+
+/* Pulse animation for alert features */
+@keyframes alertPulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.05);
+    }
+}
+
+:deep(.alert-feature-layer) {
+    animation: alertPulse 2s ease-in-out infinite;
+}
+
+/* Highlight effect on hover - MORE VISIBLE */
+:deep(.leaflet-interactive:hover) {
+    stroke-width: 8 !important;
+    filter: brightness(1.3) !important;
+    cursor: pointer !important;
+}
+
+/* Debug border - you can remove this after testing */
+:deep(.leaflet-overlay-pane svg) {
+    outline: 2px dashed rgba(255, 0, 0, 0.3);
 }
 
 /* Enhanced visibility for buffer preview */

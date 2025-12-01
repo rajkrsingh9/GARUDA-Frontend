@@ -8,7 +8,7 @@ import MapVisualization from '@/components/map/MapVisualization.vue';
 import AoiVizPanel from '@/components/map/AoiVizPanel.vue';
 
 const props = defineProps({
-    id: String,
+  id: String,
 });
 
 const router = useRouter();
@@ -44,29 +44,68 @@ const handleAoiClick = async (aoi) => {
 };
 
 const closeVizPanel = () => {
-    showVizPanel.value = false;
-    activeAoiDetails.value = null;
-    projectAlerts.value = [];
-    alertTimeRange.value = { from: null, to: null };
-    alertFeatures.value = [];
-    mapKey.value++; 
+  showVizPanel.value = false;
+  activeAoiDetails.value = null;
+  projectAlerts.value = [];
+  alertTimeRange.value = { from: null, to: null };
+  alertFeatures.value = [];
+  mapKey.value++;
 };
+
 
 const fetchAlertsForAoi = async (aoiId) => {
   try {
     console.log('[MonitorMapView] Fetching alerts for AOI:', aoiId, 'Project:', project.value.id);
+    
     const { alerts, timeRange } = await apiClient.getProjectAlerts(project.value.id, aoiId);
+    
+    console.log('[MonitorMapView] Raw alerts received:', alerts);
+    console.log('[MonitorMapView] Alert count:', alerts.length);
+    
+    // Store all alerts
     projectAlerts.value = alerts;
     alertTimeRange.value = timeRange;
+   
+    // Extract and validate feature GeoJSON
     alertFeatures.value = alerts
-        .map(a => a.featureGeoJson)
-        .filter(geojson => geojson && (geojson.type === 'Feature' || geojson.type === 'FeatureCollection'));
+        .map((alert, idx) => {
+            const geojson = alert.featureGeoJson;
+            
+            // Debug each alert
+            console.log(`[MonitorMapView] Alert ${idx + 1}:`, {
+                id: alert.id,
+                hasFeature: !!geojson,
+                featureType: geojson?.type,
+                message: alert.message
+            });
+            
+            return geojson;
+        })
+        .filter(geojson => {
+            // Only keep valid GeoJSON
+            const isValid = geojson && 
+                           (geojson.type === 'Feature' || 
+                            geojson.type === 'FeatureCollection' ||
+                            (geojson.type && geojson.coordinates));
+            
+            if (geojson && !isValid) {
+                console.warn('[MonitorMapView] Invalid GeoJSON structure:', geojson);
+            }
+            
+            return isValid;
+        });
 
-    console.log('[MonitorMapView] Alerts loaded:', alerts.length, 'Features found:', alertFeatures.value.length);
+    console.log('[MonitorMapView] Valid alert features:', alertFeatures.value.length);
+    console.log('[MonitorMapView] Features to display:', alertFeatures.value);
+    
+    
   } catch (e) {
-    console.error("Failed to load alerts:", e);
+    console.error("[MonitorMapView] Failed to load alerts:", e);
+    console.error("Error details:", e.response?.data || e.message);
   }
 };
+
+
 
 </script>
 
@@ -80,25 +119,16 @@ const fetchAlertsForAoi = async (aoiId) => {
 
     <!-- Main Content -->
     <div v-else-if="project" class="flex-grow h-[80vh] mt-[1.4vh] relative min-h-0">
+
+      
       <div class="h-full inset-0">
-        <MapVisualization 
-          :key="mapKey"
-          :aois-to-display="project.aois" 
-          :is-monitor-mode="true" 
-          @aoi-clicked="handleAoiClick"
-          :alert-features-to-display="alertFeatures" 
-        />
+        <MapVisualization :key="mapKey" :aois-to-display="project.aois" :is-monitor-mode="true"
+          @aoi-clicked="handleAoiClick" :alert-features-to-display="alertFeatures" />
       </div>
 
       <!-- FIXED: Pass selected-aoi instead of all-aois -->
-      <AoiVizPanel
-        :is-visible="showVizPanel"
-        :project-id="project.id"
-        :selected-aoi="activeAoiDetails"
-        :project-alerts="projectAlerts"
-        :alert-time-range="alertTimeRange"
-        @close="closeVizPanel"
-      />
+      <AoiVizPanel :is-visible="showVizPanel" :project-id="project.id" :selected-aoi="activeAoiDetails"
+        :project-alerts="projectAlerts" :alert-time-range="alertTimeRange" @close="closeVizPanel" />
     </div>
 
     <!-- Error State -->

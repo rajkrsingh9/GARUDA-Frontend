@@ -1,4 +1,4 @@
-<!-- frontend/src/components/map/AoiVizPanel.vue - SCATTER PLOT VERSION -->
+<!-- frontend/src/components/map/AoiVizPanel.vue - COMPLETE WITH DEBUGGING -->
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import Highcharts from 'highcharts';
@@ -56,7 +56,7 @@ const availableChannels = computed(() => {
     return result;
 });
 
-// Process alerts into series data for Highcharts - SCATTER PLOT VERSION
+// Process alerts into series data for Highcharts
 const chartSeriesData = computed(() => {
     console.log('[AoiVizPanel] Computing chart data...', {
         hasAlerts: props.projectAlerts?.length > 0,
@@ -93,7 +93,9 @@ const chartSeriesData = computed(() => {
             color: channel.color,
             aoiId: props.selectedAoi.aoi_id,
             channelId: channel.channelId,
-            type: 'scatter', // Changed to scatter
+            type: 'line',
+            step: 'left',
+            lineWidth: 2,
         });
     });
     
@@ -109,7 +111,7 @@ const chartSeriesData = computed(() => {
     
     console.log('[AoiVizPanel] Filtered alerts:', filteredAlerts.length);
     
-    // Populate series with alert data - SCATTER POINTS ONLY
+    // Populate series with alert data
     filteredAlerts.forEach(alert => {
         const seriesId = `${alert.aoiId}_${alert.channelId}`;
         const series = dataMap.get(seriesId);
@@ -117,30 +119,47 @@ const chartSeriesData = computed(() => {
         if (series) {
             const timestamp = new Date(alert.timestamp).getTime();
             
-            // Add single point for each alert
+            // Create pulse
+            series.data.push([timestamp - 1, 0]);
             series.data.push({
                 x: timestamp,
                 y: 1,
                 alertDetails: alert,
-                marker: { 
-                    enabled: true, 
-                    radius: 6, 
-                    symbol: 'circle',
-                    lineWidth: 2,
-                    lineColor: '#ffffff'
-                }
+                marker: { enabled: true, radius: 4, symbol: 'circle' }
             });
+            series.data.push([timestamp + 1, 0]);
         }
     });
     
-    const allSeries = Array.from(dataMap.values());
-    const result = allSeries.filter(s => s.data.length > 0);
+    // Finalize series
+    const allSeries = Array.from(dataMap.values()).map(series => {
+        series.data.sort((a, b) => {
+            const aTime = typeof a === 'object' ? a.x : a[0];
+            const bTime = typeof b === 'object' ? b.x : b[0];
+            return aTime - bTime;
+        });
+        
+        if (series.data.length > 0) {
+            const firstTime = typeof series.data[0] === 'object' ? series.data[0].x : series.data[0][0];
+            const lastTime = typeof series.data[series.data.length - 1] === 'object' 
+                ? series.data[series.data.length - 1].x 
+                : series.data[series.data.length - 1][0];
+            
+            series.data.unshift([firstTime - 1000, 0]);
+            series.data.push([lastTime + 1000, 0]);
+        }
+        
+        return series;
+    });
     
+    const result = allSeries.filter(s => s.data.length > 2);
     console.log('[AoiVizPanel] Final series count:', result.length);
     return result;
 });
 
-// Highcharts configuration - SCATTER PLOT VERSION
+
+
+// Highcharts configuration
 const chartOptions = computed(() => {
     const minTime = props.alertTimeRange?.from ? props.alertTimeRange.from - 1 * 60 * 1000 : undefined;
     const maxTime = props.alertTimeRange?.to ? props.alertTimeRange.to + 1 * 60 * 1000 : undefined;
@@ -148,7 +167,7 @@ const chartOptions = computed(() => {
     
     return {
         chart: {
-            type: 'scatter',
+            type: 'line',
             zoomType: 'x',
             backgroundColor: '#1f2937',
             height: chartHeight,
@@ -195,7 +214,7 @@ const chartOptions = computed(() => {
             formatter: function() {
                 const alertData = this.point.options.alertDetails;
                 
-                if (alertData) {
+                if (this.y === 1 && alertData) {
                     const time = Highcharts.dateFormat('%A, %b %e, %Y, %H:%M:%S', this.x);
                     return `
                         <div style="padding: 8px;">
@@ -213,36 +232,29 @@ const chartOptions = computed(() => {
                         </div>
                     `;
                 }
-                return `<div style="padding: 8px;"><strong>${this.series.name}</strong></div>`;
+                return `<div style="padding: 8px;"><strong>${this.series.name}</strong>: No Alert</div>`;
             }
         },
         legend: {
             enabled: false
         },
         plotOptions: {
-            scatter: {
-                cursor: 'pointer',
+            series: {
+                step: 'left',
+                lineWidth: 2,
                 marker: { 
-                    enabled: true,
-                    radius: 6,
-                    symbol: 'circle',
+                    enabled: false,
                     states: {
-                        hover: { 
-                            enabled: true, 
-                            radius: 8,
-                            lineWidth: 3
-                        }
+                        hover: { enabled: true, radius: 5 }
                     }
                 },
                 states: {
-                    hover: { 
-                        enabled: true 
-                    }
+                    hover: { lineWidthPlus: 1 }
                 },
                 point: {
                     events: {
                         click: function() {
-                            if (this.options.alertDetails) {
+                            if (this.y === 1 && this.options.alertDetails) {
                                 handlePointClick(this.options.alertDetails);
                             }
                         }
@@ -443,6 +455,7 @@ watch(availableChannels, (newChannels) => {
                                class="rounded text-cyan-500 bg-gray-700 border-gray-600 focus:ring-cyan-500">
                         <div class="w-3 h-3 rounded-full flex-shrink-0" :style="{ backgroundColor: channel.color }"></div>
                         <span class="font-medium">{{ channel.channelName }}</span>
+                        <!-- <span class="text-gray-500">({{ channel.category }})</span> -->
                     </label>
                 </div>
             </div>
@@ -492,6 +505,11 @@ watch(availableChannels, (newChannels) => {
                     <pre class="bg-gray-800 p-3 rounded text-sm text-yellow-300 whitespace-pre-wrap overflow-x-auto">{{ JSON.stringify(currentAlertDetails.message, null, 2) }}</pre>
                 </div>
             </div>
+            
+            <!-- <button @click="showAlertModal = false" 
+                    class="mt-6 w-full bg-cyan-600 hover:bg-cyan-700 text-white py-3 rounded-lg font-semibold">
+                Close
+            </button> -->
         </div>
     </div>
 </template>
