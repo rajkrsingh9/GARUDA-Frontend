@@ -125,7 +125,7 @@ const closeOnFocusOut = () => {
 
 </script>
 
-<template class="z-[20000] !important">
+<template >
     <div ref="dropdownRef" class="notification-container z-[200] relative inline-block">
 
         <button @click="toggleDropdown" class="relative transition-colors duration-200 px-2 py-1 z-[2000] rounded-full"
@@ -144,7 +144,7 @@ const closeOnFocusOut = () => {
             </span>
         </button>
 
-        <div v-if="isDropdownOpen" tabindex="-1" @focusout="closeOnFocusOut" class="absolute  bg-black rounded-lg shadow-xl z-[3000] ring-1 ring-black ring-opacity-5 
+        <div v-if="isDropdownOpen" tabindex="-1" @focusout="closeOnFocusOut" class="absolute  bg-black rounded-lg shadow-xl  ring-1 ring-gray ring-opacity-5 
                     w-72 sm:w-80 right-0 max-w-[calc(100vw-20px)]">
             <div class="p-3 flex items-center justify-between border-b border-gray-600">
 
@@ -169,7 +169,7 @@ const closeOnFocusOut = () => {
                     <div class="flex items-start justify-between p-3">
 
                         <div @click="handleNavigationClick(alert)" class="flex-grow pr-3 cursor-pointer">
-                            <p class="text-sm font-bold text-cyan-100 break-words">
+                            <p class="text-sm font-bold text-cyan-100 text-left break-words">
                                 <span class="text-red">{{ alert.project_name || alert.projectId }}</span>:
                                 <span class="text-olive">{{ alert.aoi_name || alert.aoiId }}</span> has an
                                 Alert for <span class="text-green">{{ alert.channelName }}</span>
