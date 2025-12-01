@@ -4,11 +4,11 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import Highcharts from 'highcharts';
 
 const props = defineProps({
-  isVisible: Boolean,
-  projectId: [Number, String],
-  selectedAoi: { type: Object, default: null },
-  projectAlerts: { type: Array, default: () => [] },
-  alertTimeRange: { type: Object, default: () => ({ from: null, to: null }) }
+    isVisible: Boolean,
+    projectId: [Number, String],
+    selectedAoi: { type: Object, default: null },
+    projectAlerts: { type: Array, default: () => [] },
+    alertTimeRange: { type: Object, default: () => ({ from: null, to: null }) }
 });
 
 const emit = defineEmits(['close']);
@@ -33,14 +33,14 @@ const availableChannels = computed(() => {
         console.log('[AoiVizPanel] No selectedAoi or subscriptions');
         return [];
     }
-    
+
     const channels = new Map();
     let colorIndex = 0;
-    
+
     props.selectedAoi.subscriptions.forEach(sub => {
         if (!channels.has(sub.channelId)) {
             const color = CHANNEL_COLORS[colorIndex % CHANNEL_COLORS.length];
-            channels.set(sub.channelId, { 
+            channels.set(sub.channelId, {
                 channelId: sub.channelId,
                 channelName: sub.channelName,
                 category: sub.category,
@@ -50,7 +50,7 @@ const availableChannels = computed(() => {
             colorIndex++;
         }
     });
-    
+
     const result = Array.from(channels.values());
     console.log('[AoiVizPanel] Available channels:', result);
     return result;
@@ -76,14 +76,14 @@ const chartSeriesData = computed(() => {
     }
 
     const dataMap = new Map();
-    
+
     // Initialize series for each selected channel
-    const selectedChannels = availableChannels.value.filter(ch => 
+    const selectedChannels = availableChannels.value.filter(ch =>
         selectedChannelIds.value.includes(ch.channelId)
     );
-    
+
     console.log('[AoiVizPanel] Initializing series for channels:', selectedChannels);
-    
+
     selectedChannels.forEach(channel => {
         const seriesId = `${props.selectedAoi.aoi_id}_${channel.channelId}`;
         dataMap.set(seriesId, {
@@ -96,35 +96,35 @@ const chartSeriesData = computed(() => {
             type: 'scatter', // Changed to scatter
         });
     });
-    
+
     // Filter alerts for selected AOI and channels
     const filteredAlerts = props.projectAlerts.filter(alert => {
-        const match = alert.aoiId === props.selectedAoi.aoi_id && 
-               selectedChannelIds.value.includes(alert.channelId);
+        const match = alert.aoiId === props.selectedAoi.aoi_id &&
+            selectedChannelIds.value.includes(alert.channelId);
         if (match) {
             console.log('[AoiVizPanel] Alert matched:', alert);
         }
         return match;
     });
-    
+
     console.log('[AoiVizPanel] Filtered alerts:', filteredAlerts.length);
-    
+
     // Populate series with alert data - SCATTER POINTS ONLY
     filteredAlerts.forEach(alert => {
         const seriesId = `${alert.aoiId}_${alert.channelId}`;
         const series = dataMap.get(seriesId);
-        
+
         if (series) {
             const timestamp = new Date(alert.timestamp).getTime();
-            
+
             // Add single point for each alert
             series.data.push({
                 x: timestamp,
                 y: 1,
                 alertDetails: alert,
-                marker: { 
-                    enabled: true, 
-                    radius: 6, 
+                marker: {
+                    enabled: true,
+                    radius: 6,
                     symbol: 'circle',
                     lineWidth: 2,
                     lineColor: '#ffffff'
@@ -132,10 +132,10 @@ const chartSeriesData = computed(() => {
             });
         }
     });
-    
+
     const allSeries = Array.from(dataMap.values());
     const result = allSeries.filter(s => s.data.length > 0);
-    
+
     console.log('[AoiVizPanel] Final series count:', result.length);
     return result;
 });
@@ -145,7 +145,7 @@ const chartOptions = computed(() => {
     const minTime = props.alertTimeRange?.from ? props.alertTimeRange.from - 1 * 60 * 1000 : undefined;
     const maxTime = props.alertTimeRange?.to ? props.alertTimeRange.to + 1 * 60 * 1000 : undefined;
     const chartHeight = window.innerHeight * 0.30;
-    
+
     return {
         chart: {
             type: 'scatter',
@@ -192,9 +192,9 @@ const chartOptions = computed(() => {
             borderColor: '#4b5563',
             style: { color: '#f3f4f6' },
             useHTML: true,
-            formatter: function() {
+            formatter: function () {
                 const alertData = this.point.options.alertDetails;
-                
+
                 if (alertData) {
                     const time = Highcharts.dateFormat('%A, %b %e, %Y, %H:%M:%S', this.x);
                     return `
@@ -222,26 +222,26 @@ const chartOptions = computed(() => {
         plotOptions: {
             scatter: {
                 cursor: 'pointer',
-                marker: { 
+                marker: {
                     enabled: true,
                     radius: 6,
                     symbol: 'circle',
                     states: {
-                        hover: { 
-                            enabled: true, 
+                        hover: {
+                            enabled: true,
                             radius: 8,
                             lineWidth: 3
                         }
                     }
                 },
                 states: {
-                    hover: { 
-                        enabled: true 
+                    hover: {
+                        enabled: true
                     }
                 },
                 point: {
                     events: {
-                        click: function() {
+                        click: function () {
                             if (this.options.alertDetails) {
                                 handlePointClick(this.options.alertDetails);
                             }
@@ -279,18 +279,34 @@ const deselectAllChannels = () => {
     selectedChannelIds.value = [];
 };
 
+// Add this function in your script setup section, after the other functions
+
+const formatValue = (value) => {
+    if (value === null) return 'null';
+    if (value === undefined) return 'undefined';
+    if (typeof value === 'object') {
+        // For nested objects/arrays, convert to readable string without brackets
+        if (Array.isArray(value)) {
+            return value.join(', ');
+        }
+        // For nested objects, show as "key: value" pairs
+        return Object.entries(value).map(([k, v]) => `${k}: ${v}`).join('; ');
+    }
+    return String(value);
+};
+
 // Chart management
 const updateChart = () => {
     if (!props.isVisible || !chartElement.value) {
         console.log('[AoiVizPanel] Skipping chart update - not visible or no element');
         return;
     }
-    
+
     isLoadingChart.value = true;
-    
+
     setTimeout(() => {
         console.log('[AoiVizPanel] Updating chart with series count:', chartSeriesData.value.length);
-        
+
         if (chartSeriesData.value.length > 0) {
             if (chartInstance) {
                 chartInstance.update(chartOptions.value, true, true);
@@ -372,17 +388,17 @@ watch(availableChannels, (newChannels) => {
 </script>
 
 <template>
-    <div v-if="isVisible" 
-         class="fixed bottom-0 left-0 right-0 bg-gray-800 shadow-2xl border-t-4 border-cyan-500 transition-all duration-300"
-         style=" z-index: 1000;">
-        
+    <div v-if="isVisible"
+        class="fixed bottom-0 left-0 right-0 bg-gray-800 shadow-2xl border-t-4 border-cyan-500 transition-all duration-300"
+        style=" z-index: 1000;">
+
         <!-- Close Button -->
-        <button @click="$emit('close')" 
-                class="absolute top-2 right-2 text-red-400 hover:text-red-300 text-3xl font-bold z-20 w-8 h-8 flex items-center justify-center"
-                title="Close Panel">
+        <button @click="$emit('close')"
+            class="absolute top-2 right-2 text-red-400 hover:text-red-300 text-3xl font-bold z-20 w-8 h-8 flex items-center justify-center"
+            title="Close Panel">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2"/>
-                <line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="2"/>
+                <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" />
+                <line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="2" />
             </svg>
         </button>
 
@@ -397,28 +413,27 @@ watch(availableChannels, (newChannels) => {
 
             <!-- Chart Area -->
             <div class=" bg-gray-900 rounded-lg p-2 h-[32vh] relative overflow-hidden">
-                <div v-if="isLoadingChart" 
-                     class=" inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75 z-10">
+                <div v-if="isLoadingChart"
+                    class=" inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75 z-10">
                     <div class="text-cyan-400 text-lg">Loading chart...</div>
                 </div>
-                
-                <div ref="chartElement" 
-                     v-show="chartSeriesData.length > 0 && !isLoadingChart"
-                     class="w-full h-[30vh]">
+
+                <div ref="chartElement" v-show="chartSeriesData.length > 0 && !isLoadingChart" class="w-full h-[30vh]">
                 </div>
-                
-                <div v-if="!isLoadingChart && chartSeriesData.length === 0" 
-                     class="flex items-center justify-center text-gray-400 text-center h-[32vh]">
+
+                <div v-if="!isLoadingChart && chartSeriesData.length === 0"
+                    class="flex items-center justify-center text-gray-400 text-center h-[32vh]">
                     <div>
-                        <svg class="w-16 h-16 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+                        <svg class="w-16 h-16 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
                             </path>
                         </svg>
                         <p class="text-lg font-semibold">No Data to Display</p>
                         <p class="text-sm mt-2">
-                            {{ projectAlerts.length === 0 
-                                ? 'No alerts found for this AOI' 
+                            {{ projectAlerts.length === 0
+                                ? 'No alerts found for this AOI'
                                 : 'Select alert channels to view alerts' }}
                         </p>
                     </div>
@@ -426,43 +441,44 @@ watch(availableChannels, (newChannels) => {
             </div>
 
             <!-- Alert Channel Legend -->
-            <div class="flex-shrink-0 bg-gray-700 h-[10vh] my-1 rounded-lg p-2 max-h-[120px] overflow-hidden flex flex-col">
+            <div
+                class="flex-shrink-0 bg-gray-700 h-[10vh] my-1 rounded-lg p-2 max-h-[120px] overflow-hidden flex flex-col">
                 <div class="flex justify-between h-[2vh] items-center">
                     <label class="text-gray-300 text-sm font-semibold">Alert Channels:</label>
                 </div>
                 <div class="flex h-[6vhv] p-2 flex-wrap gap-2 overflow-y-auto">
-                    <label v-for="channel in availableChannels" 
-                           :key="channel.channelId"
-                           class="flex items-center space-x-2 text-xs cursor-pointer transition-all px-2 py-1 bg-gray-600 rounded whitespace-nowrap"
-                           :class="selectedChannelIds.includes(channel.channelId) ? 'text-white ring-2 ring-cyan-500' : 'text-gray-400'"
-                           :title="`${channel.category} - ${channel.channelName}`">
-                        <input type="checkbox" 
-                               :value="channel.channelId" 
-                               :checked="selectedChannelIds.includes(channel.channelId)"
-                               @change="toggleChannelSelection(channel.channelId)"
-                               class="rounded text-cyan-500 bg-gray-700 border-gray-600 focus:ring-cyan-500">
-                        <div class="w-3 h-3 rounded-full flex-shrink-0" :style="{ backgroundColor: channel.color }"></div>
+                    <label v-for="channel in availableChannels" :key="channel.channelId"
+                        class="flex items-center space-x-2 text-xs cursor-pointer transition-all px-2 py-1 bg-gray-600 rounded whitespace-nowrap"
+                        :class="selectedChannelIds.includes(channel.channelId) ? 'text-white ring-2 ring-cyan-500' : 'text-gray-400'"
+                        :title="`${channel.category} - ${channel.channelName}`">
+                        <input type="checkbox" :value="channel.channelId"
+                            :checked="selectedChannelIds.includes(channel.channelId)"
+                            @change="toggleChannelSelection(channel.channelId)"
+                            class="rounded text-cyan-500 bg-gray-700 border-gray-600 focus:ring-cyan-500">
+                        <div class="w-3 h-3 rounded-full flex-shrink-0" :style="{ backgroundColor: channel.color }">
+                        </div>
                         <span class="font-medium">{{ channel.channelName }}</span>
                     </label>
                 </div>
             </div>
         </div>
     </div>
-    
+
     <!-- Alert Details Modal -->
-    <div v-if="showAlertModal && currentAlertDetails" 
-         class="fixed inset-0 bg-black bg-opacity-70 z-[30000] flex justify-center items-center p-4"
-         @click.self="showAlertModal = false">
-        <div class="bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-2xl relative border-2 border-cyan-500 max-h-[80vh] overflow-y-auto">
-            <button @click="showAlertModal = false" 
-                    class="absolute top-3 right-3 text-red-400 hover:text-red-300 text-3xl font-bold">
+    <div v-if="showAlertModal && currentAlertDetails"
+        class="fixed inset-0 bg-black bg-opacity-70 z-[30000] flex justify-center items-center p-4"
+        @click.self="showAlertModal = false">
+        <div
+            class="bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-2xl relative border-2 border-cyan-500 max-h-[80vh] overflow-y-auto">
+            <button @click="showAlertModal = false"
+                class="absolute top-3 right-3 text-red-400 hover:text-red-300 text-3xl font-bold">
                 Close
             </button>
-            
+
             <h3 class="text-2xl text-white font-bold mb-4 border-b border-gray-700 pb-3">
                 🔔 Alert Details
             </h3>
-            
+
             <div class="space-y-4">
                 <div class="bg-gray-700 p-4 rounded-lg">
                     <div class="grid grid-cols-2 gap-4">
@@ -486,11 +502,24 @@ watch(availableChannels, (newChannels) => {
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="bg-gray-900 p-4 rounded-lg">
                     <p class="text-gray-400 text-sm mb-2">Alert Content:</p>
-                    <pre class="bg-gray-800 p-3 rounded text-sm text-yellow-300 whitespace-pre-wrap overflow-x-auto">{{ JSON.stringify(currentAlertDetails.message, null, 2) }}</pre>
+                    <div class="bg-gray-800 p-3 rounded text-sm text-yellow-300 space-y-2">
+                        <template
+                            v-if="typeof currentAlertDetails.message === 'object' && currentAlertDetails.message !== null">
+                            <div v-for="(value, key) in currentAlertDetails.message" :key="key" class="flex">
+                                <span class="text-gray-400 font-semibold min-w-[120px]">{{ key }}:</span>
+                                <span class="text-yellow-300 ml-2">{{ formatValue(value) }}</span>
+                            </div>
+                        </template>
+                        <template v-else>
+                            <div class="text-yellow-300">{{ currentAlertDetails.message }}</div>
+                        </template>
+                    </div>
                 </div>
+
+                
             </div>
         </div>
     </div>
