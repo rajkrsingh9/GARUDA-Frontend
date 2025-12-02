@@ -1,6 +1,6 @@
 // ProjectTypes.js 
 
-// Re-define the required imported types first (these were already defined in classes)
+
 /**
  * @typedef {Object} GeoJsonPolygon
  * @property {'Polygon'} type

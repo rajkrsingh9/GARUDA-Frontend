@@ -66,16 +66,46 @@ This section covers setting up the database and preparing it for Change Data Cap
 
 
 ```.env bash 
-# Server Configuration
-PORT=3000
 
-# Database Configuration
+DB_HOST="Your IP address"
 DB_USER=postgres
-DB_HOST=localhost
-DB_DATABASE=garuda
 DB_PASSWORD=qazwsx123
+DB_DATABASE=garuda
 DB_PORT=5432
+
+# Change 4: Explicitly set HOST to 0.0.0.0 for network access
+HOST=0.0.0.0
+PORT=3000
 ```
+
+sudo nano /etc/postgresql/<version>/main/postgresql.conf 
+
+In postgresql.conf, find and change this line:
+Code snippet
+
+listen_addresses = '*'
+
+
+B. Modify pg_hba.conf
+
+
+sudo nano /etc/postgresql/<version>/main/pg_hba.conf
+This file handles Host-Based Authentication, determining which hosts are allowed to connect and using what authentication method.
+
+File Location: Usually in the same directory as postgresql.conf.
+
+Add the following line to pg_hba.conf:
+
+Code snippet
+
+# Change 2: Allow connections from your local network (e.g., 192.168.1.x)
+# Replace 192.168.1.0/24 with your actual network range if different.
+# If you want to allow ANY IP, use 0.0.0.0/0 (Less secure, use with caution)
+host    all             all             0.0.0.0/0               md5
+
+host    all             all             <Your IPv4 Address>          md5
+
+Note: After making these changes, you must restart your PostgreSQL service for them to take effect.
 
 
 2.  **Enable Logical Replication (CDC Configuration)**
