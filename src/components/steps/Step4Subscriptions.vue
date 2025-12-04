@@ -1,5 +1,4 @@
 <!-- GARUDA-Frontend/src/components/steps/Step4Subscriptions.vue -->
-
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import { ApiClient } from '@/api/ApiClient.js';
@@ -446,13 +445,17 @@ const formattedUserFilterOptions = computed(() => {
                             <label class="text-gray-300 text-sm font-semibold mb-2 block">
                                 Alert Channel: <span class="text-red-400">*</span>
                             </label>
-                            <CustomSelect 
-                                v-model="selectedChannelForAdd" 
-                                :options="flattenedChannelsForAdd"
-                                value-key="id"
-                                label-key="channel_name"
-                                placeholder="Select a channel"
-                            />
+                            <select v-model="selectedChannelForAdd"
+                                class="w-full px-3 py-2 bg-gray-700 text-white text-sm rounded-lg border border-gray-600 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition disabled:opacity-50"
+                                :disabled="loadingChannels">
+                                <option :value="null" disabled>Select a channel</option>
+                                <optgroup v-for="(channels, category) in groupedAvailableChannelsForAdd" :key="category"
+                                    :label="category">
+                                    <option v-for="channel in channels" :key="channel.id" :value="channel">
+                                        {{ channel.channel_name }}
+                                    </option>
+                                </optgroup>
+                            </select>
                             <p v-if="loadingChannels" class="text-gray-400 text-xs mt-1">Loading channels...</p>
                             <p v-else-if="availableChannelsForAdd.length === 0" class="text-yellow-400 text-xs mt-1">
                                 All available channels are already subscribed for this AOI.
