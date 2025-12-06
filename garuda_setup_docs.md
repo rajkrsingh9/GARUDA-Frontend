@@ -1059,7 +1059,12 @@ Use this checklist to ensure all steps are completed:
 - Backend: https://github.com/rajkrsingh9/GARUDA-Backend
 - Frontend: https://github.com/rajkrsingh9/GARUDA-Frontend
 
+**Documentation References:**
+- [Apache Kafka Documentation](https://kafka.apache.org/documentation/)
+- [Debezium PostgreSQL Connector](https://debezium.io/documentation/reference/stable/connectors/postgresql.html)
+- [PostgreSQL Logical Replication](https://www.postgresql.org/docs/16/logical-replication.html)
 
+---
 
 **Document Version:** 1.0  
 **Last Updated:** December 2025  
