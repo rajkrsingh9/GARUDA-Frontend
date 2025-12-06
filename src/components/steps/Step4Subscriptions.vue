@@ -1,4 +1,4 @@
-<!-- GARUDA-Frontend/src/components/steps/Step4Subscriptions.vue -->
+<!-- GARUDA-Frontend/src/components/steps/Step4Subscriptions.vue - FIXED with toggle and delete -->
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import { ApiClient } from '@/api/ApiClient.js';
@@ -48,11 +48,12 @@ const getAoiName = (clientAoiId) => {
     return aoi ? aoi.name : `AOI ${clientAoiId}`;
 };
 
+// CRITICAL: Only show subscriptions that aren't deleted (status != 2)
 const allProjectSubscriptions = computed(() => {
     return props.projectData.subscriptions.filter(sub => sub.status !== 2);
 });
 
-// Get existing subscriptions for selected AOI in modal (Active or Inactive)
+// Get existing subscriptions for selected AOI in modal (Active or Inactive, but not Deleted)
 const allAoiSubscriptionsForAdd = computed(() => {
     if (!selectedAOIForAdd.value) return [];
     return props.projectData.getSubscriptionsForAoi(selectedAOIForAdd.value.clientAoiId, true);
@@ -98,7 +99,7 @@ const flattenedChannelsForAdd = computed(() => {
     return flattened;
 });
 
-// --- Logic for Main Component List (Active Subscriptions) ---
+// --- Logic for Main Component List (Active and Inactive Subscriptions) ---
 
 const filteredAndGroupedSubscriptions = computed(() => {
     let subs = props.projectData.subscriptions.filter(s => s.status !== 2);
@@ -149,7 +150,7 @@ onMounted(async () => {
     }
 });
 
-// The core logic for saving the subscription, now triggered by the modal's save button
+// Save subscription from modal
 const saveSubscriptionFromModal = () => {
     if (!selectedAOIForAdd.value || !selectedChannelForAdd.value || selectedUsersForAdd.value.length === 0) {
         messageStore.showMessage("Please select AOI, channel, and at least one user.", "error");
@@ -195,19 +196,25 @@ const saveSubscriptionFromModal = () => {
     showAddSubscriptionModal.value = false;
 };
 
+// CRITICAL: Toggle between Active (1) and Inactive (0)
 const toggleSubscriptionStatus = (subscription) => {
+    props.projectData.toggleSubscriptionStatus(subscription);
+    
     if (subscription.status === 1) {
-        props.projectData.softDeleteSubscription(subscription);
-        messageStore.showMessage("Subscription marked as **Inactive** (soft delete).", "info");
-    } else if (subscription.status === 0) {
-        props.projectData.addOrUpdateSubscription(
-            subscription.clientAoiId,
-            subscription.channelId,
-            subscription.userIds,
-            subscription.subscriptionId
-        );
-        messageStore.showMessage("Subscription **reactivated**.", "success");
+        messageStore.showMessage("Subscription activated.", "success");
+    } else {
+        messageStore.showMessage("Subscription marked as inactive.", "info");
     }
+};
+
+// CRITICAL: Delete subscription (mark as status = 2)
+const deleteSubscription = (subscription) => {
+    if (!confirm(`Are you sure you want to delete this subscription for ${getChannelName(subscription.channelId)}?`)) {
+        return;
+    }
+    
+    props.projectData.softDeleteSubscription(subscription);
+    messageStore.showMessage("Subscription deleted.", "info");
 };
 
 // Available AOIs (non-deleted)
@@ -368,26 +375,41 @@ const formattedUserFilterOptions = computed(() => {
                                 }">
 
                                 <div class="flex justify-between items-start">
-                                    <div>
+                                    <div class="flex-grow">
                                         <div class="flex items-center gap-2">
                                             <span>{{ getCategoryIcon(getChannelCategory(sub.channelId)) }}</span>
                                             <span class="text-white font-semibold text-sm">
                                                 {{ getChannelName(sub.channelId) }}
                                             </span>
+                                            <!-- Status badge -->
+                                            <span class="text-xs px-2 py-0.5 rounded" :class="{
+                                                'bg-green-600 text-white': sub.status === 1,
+                                                'bg-yellow-600 text-white': sub.status === 0
+                                            }">
+                                                {{ sub.status === 1 ? 'Active' : 'Inactive' }}
+                                            </span>
                                         </div>
-
-                                        <p class="text-xs mt-1"
-                                            :class="sub.status === 1 ? 'text-green-400' : 'text-yellow-400'">
-                                            {{ sub.status === 1 ? 'Active' : 'Inactive (Soft)' }}
-                                        </p>
                                     </div>
 
-                                    <button @click="toggleSubscriptionStatus(sub)"
-                                        class="px-2 py-1 text-xs rounded border font-medium" :class="sub.status === 1
-                                            ? 'bg-red-600 hover:bg-red-700 text-white border-red-500'
-                                            : 'bg-green-600 hover:bg-green-700 text-white border-green-500'">
-                                        {{ sub.status === 1 ? 'Remove' : 'Reactivate' }}
-                                    </button>
+                                    <div class="flex items-center gap-2">
+                                        <!-- Toggle Active/Inactive checkbox -->
+                                        <label class="flex items-center cursor-pointer" 
+                                            :title="sub.status === 1 ? 'Click to deactivate' : 'Click to activate'">
+                                            <input 
+                                                type="checkbox" 
+                                                :checked="sub.status === 1"
+                                                @change="toggleSubscriptionStatus(sub)"
+                                                class="w-5 h-5 text-green-600 bg-gray-700 border-gray-600 rounded focus:ring-green-500 focus:ring-2 cursor-pointer"
+                                            />
+                                        </label>
+
+                                        <!-- Delete button -->
+                                        <button @click="deleteSubscription(sub)"
+                                            class="px-2 py-1 text-xs rounded border font-medium bg-red-600 hover:bg-red-700 text-white border-red-500"
+                                            title="Delete subscription permanently">
+                                            Delete
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div class="border-t border-gray-600 mt-1 pt-2">

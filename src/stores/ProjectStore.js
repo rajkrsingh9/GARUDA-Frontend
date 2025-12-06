@@ -9,6 +9,8 @@ import { UserSession } from '../classes/UserSession.js';
 
 const api = ApiClient.getInstance();
 
+
+
 /**
  * Maps backend data to ProjectFormData for editing
  * FIXED: Proper auxData handling
@@ -42,14 +44,14 @@ function mapBackendToForm(data) {
     let aoiCounter = 1;
     form.aoiDrafts = data.aois.map((aoi) => {
         let geometry = aoi.geomGeoJson;
-        
+
         if (!geometry) {
             console.error(`AOI ${aoi.name} has no geometry!`);
             return null;
         }
 
         let geometryType = geometry.type;
-        
+
         if (geometryType === 'GeometryCollection') {
             if (!geometry.geometries || geometry.geometries.length === 0) {
                 console.error(`AOI ${aoi.name} has empty GeometryCollection`);
@@ -75,7 +77,7 @@ function mapBackendToForm(data) {
         aoiDraft.aoiId = aoi.aoi_id;
         aoiDraft.dbId = aoi.id;
         aoiDraft.status = aoi.status || 1;
-        
+
         // CRITICAL: Store original coordinates and other geometry properties
         aoiDraft.geomProperties = {
             ...(aoi.geom_properties || {}),
@@ -127,9 +129,40 @@ function mapBackendToForm(data) {
  * ProjectStore: Manages project state and operations
  */
 export const useProjectStore = defineStore('project', () => {
+
+    const userPermissions = ref({
+        isOwner: false,
+        isAdmin: false,
+        roles: [],
+        permissions: {
+            canEditProjectInfo: true,
+            canEditUsers: true,
+            canEditAOI: true,
+            canEditSubscriptions: true,
+            canDelete: true
+        }
+    });
+
     const projectForm = ref(new ProjectFormData());
     const userProjects = ref([]);
     const activeAlerts = ref([]);
+
+    // Add this computed property:
+    const hasStepPermission = computed(() => {
+        return (step) => {
+            if (userPermissions.value.isOwner || userPermissions.value.isAdmin) {
+                return true;
+            }
+
+            switch (step) {
+                case 1: return userPermissions.value.permissions.canEditProjectInfo;
+                case 2: return userPermissions.value.permissions.canEditUsers;
+                case 3: return userPermissions.value.permissions.canEditAOI;
+                case 4: return userPermissions.value.permissions.canEditSubscriptions;
+                default: return false;
+            }
+        };
+    });
 
     const isEditing = computed(() => projectForm.value.isUpdateMode);
     const currentStep = computed(() => projectForm.value.currentStep);
@@ -137,6 +170,31 @@ export const useProjectStore = defineStore('project', () => {
 
     function initNewProjectForm() {
         projectForm.value = new ProjectFormData(false, null);
+    }
+
+    async function fetchProjectPermissions(projectId) {
+        try {
+            const permissions = await api.getProjectPermissions(projectId);
+            userPermissions.value = permissions;
+            console.log('[ProjectStore] User permissions loaded:', permissions);
+            return permissions;
+        } catch (error) {
+            console.error('Error fetching permissions:', error);
+            // Default to no permissions on error
+            userPermissions.value = {
+                isOwner: false,
+                isAdmin: false,
+                roles: [],
+                permissions: {
+                    canEditProjectInfo: false,
+                    canEditUsers: false,
+                    canEditAOI: false,
+                    canEditSubscriptions: false,
+                    canDelete: false
+                }
+            };
+            throw error;
+        }
     }
 
     async function submitProject() {
@@ -184,6 +242,9 @@ export const useProjectStore = defineStore('project', () => {
 
     async function loadProjectForUpdate(projectId) {
         try {
+            // Load permissions first
+            await fetchProjectPermissions(projectId);
+
             const response = await api.getProjectDetails(projectId);
             console.log('[ProjectStore] Loaded project data:', response);
 
@@ -249,6 +310,9 @@ export const useProjectStore = defineStore('project', () => {
         totalAlerts,
         addAlert,
         markAlertAsRead,
+        userPermissions,
+        hasStepPermission,
+        fetchProjectPermissions,
         projectName: computed({
             get: () => projectForm.value.projectName,
             set: (val) => { projectForm.value.projectName = val; }

@@ -2,14 +2,14 @@
 
 /**
  * ProjectFormData: Manages the volatile state of the 4-step project configuration process.
- * FIXED: Proper user role handling
+ * FIXED: Proper user removal handling and subscription cleanup
  */
 export class ProjectFormData {
     projectName = '';
     description = '';
     auxDataDrafts = [];
 
-    users = []; // FIXED: Array of {userId: string, roles: number[]}
+    users = []; // Array of {userId: string, roles: number[]}
     aoiDrafts = [];
     subscriptions = [];
 
@@ -37,6 +37,32 @@ export class ProjectFormData {
 
     addAOIDraft(aoi) {
         this.aoiDrafts.push(aoi);
+    }
+
+    /**
+     * CRITICAL: Remove user from project AND clean up their subscriptions
+     */
+    removeUser(userId) {
+        // Remove from users array
+        this.users = this.users.filter(u => {
+            const uId = typeof u === 'object' ? u.userId : u;
+            return uId !== userId;
+        });
+
+        // Remove user from all subscriptions
+        this.subscriptions.forEach(sub => {
+            if (sub.userIds && sub.userIds.includes(userId)) {
+                sub.userIds = sub.userIds.filter(id => id !== userId);
+            }
+        });
+
+        // Remove subscriptions that have no users left
+        this.subscriptions = this.subscriptions.filter(sub => {
+            // Keep subscriptions with users OR subscriptions marked for deletion (status=2)
+            return (sub.userIds && sub.userIds.length > 0) || sub.status === 2;
+        });
+
+        console.log(`[ProjectFormData] User ${userId} removed from project and all subscriptions`);
     }
 
     getFinalAuxData() {
@@ -107,7 +133,26 @@ export class ProjectFormData {
     }
 
     /**
-     * Soft deletes a subscription
+     * Toggle subscription status between active (1) and inactive (0)
+     */
+    toggleSubscriptionStatus(subscription) {
+        const index = this.subscriptions.findIndex(
+            s => s.clientAoiId === subscription.clientAoiId && 
+                 s.channelId === subscription.channelId && 
+                 s.subscriptionId === subscription.subscriptionId
+        );
+
+        if (index === -1) {
+            console.warn('Subscription not found for toggle:', subscription);
+            return;
+        }
+
+        // Toggle between active (1) and inactive (0)
+        this.subscriptions[index].status = this.subscriptions[index].status === 1 ? 0 : 1;
+    }
+
+    /**
+     * Soft deletes a subscription (marks as deleted with status 2)
      */
     softDeleteSubscription(subscription) {
         const index = this.subscriptions.findIndex(
@@ -123,39 +168,26 @@ export class ProjectFormData {
         }
 
         if (this.subscriptions[index].subscriptionId) {
-            this.subscriptions[index].status = 0;
+            // Has DB ID - mark as deleted
+            this.subscriptions[index].status = 2;
         } else {
+            // No DB ID - remove from array
             this.subscriptions.splice(index, 1);
         }
     }
 
     /**
-     * Hard removes a subscription (status=2)
+     * Hard removes a subscription (status=2) - DEPRECATED, use softDeleteSubscription
      */
     hardRemoveSubscription(clientAoiIdOrSubscription, channelId = null) {
-        let subscription = null;
-        if (typeof clientAoiIdOrSubscription === 'object' && clientAoiIdOrSubscription !== null) {
-            subscription = clientAoiIdOrSubscription;
-        } else {
-            subscription = this.subscriptions.find(
-                s => (s.aoiId === clientAoiIdOrSubscription || s.clientAoiId === clientAoiIdOrSubscription) 
+        this.softDeleteSubscription(
+            typeof clientAoiIdOrSubscription === 'object' 
+                ? clientAoiIdOrSubscription 
+                : this.subscriptions.find(s => 
+                    (s.aoiId === clientAoiIdOrSubscription || s.clientAoiId === clientAoiIdOrSubscription) 
                     && s.channelId === channelId
-            );
-        }
-
-        if (!subscription) {
-            console.warn('Subscription not found for removal');
-            return;
-        }
-
-        const index = this.subscriptions.findIndex(s => s === subscription);
-        if (index === -1) return;
-
-        if (subscription.subscriptionId) {
-            this.subscriptions[index].status = 2;
-        } else {
-            this.subscriptions.splice(index, 1);
-        }
+                )
+        );
     }
 
     /**
@@ -182,37 +214,21 @@ export class ProjectFormData {
     }
 
     /**
-     * Removes a subscription
+     * Removes a subscription - DEPRECATED, use softDeleteSubscription
      */
     removeSubscription(clientAoiIdOrSubscription, channelId = null) {
-        let subscription = null;
-        
-        if (typeof clientAoiIdOrSubscription === 'object' && clientAoiIdOrSubscription !== null) {
-            subscription = clientAoiIdOrSubscription;
-        } else {
-            subscription = this.subscriptions.find(
-                s => (s.aoiId === clientAoiIdOrSubscription || s.clientAoiId === clientAoiIdOrSubscription) 
+        this.softDeleteSubscription(
+            typeof clientAoiIdOrSubscription === 'object'
+                ? clientAoiIdOrSubscription
+                : this.subscriptions.find(s =>
+                    (s.aoiId === clientAoiIdOrSubscription || s.clientAoiId === clientAoiIdOrSubscription)
                     && s.channelId === channelId
-            );
-        }
-
-        if (!subscription) {
-            console.warn('Subscription not found for removal');
-            return;
-        }
-
-        const index = this.subscriptions.findIndex(s => s === subscription);
-        if (index === -1) return;
-
-        if (subscription.subscriptionId) {
-            this.subscriptions[index].status = 2;
-        } else {
-            this.subscriptions.splice(index, 1);
-        }
+                )
+        );
     }
 
     /**
-     * FIXED: Converts to backend bundle format with proper user/role structure
+     * Converts to backend bundle format with proper user/role structure
      */
     toBackendBundle() {
         const finalAuxData = this.getFinalAuxData();
@@ -223,16 +239,13 @@ export class ProjectFormData {
                 description: this.description,
                 auxData: Object.keys(finalAuxData).length > 0 ? finalAuxData : null,
             },
-            // FIXED: Handle both object and string user formats for backwards compatibility
             userData: this.users.map(user => {
-                // If user is already an object with userId and roles
                 if (typeof user === 'object' && user.userId) {
                     return {
                         userId: user.userId,
                         roles: user.roles || []
                     };
                 }
-                // If user is just a string (legacy format)
                 return {
                     userId: user,
                     roles: []
@@ -245,15 +258,18 @@ export class ProjectFormData {
                 }
                 return aoiData;
             }),
-            subscriptionData: this.subscriptions.map(sub => ({
-                aoiId: sub.aoiId,
-                channelId: sub.channelId,
-                userIds: sub.userIds,
-                alertDisseminationMode: sub.alertDisseminationMode,
-                auxData: sub.auxData,
-                status: sub.status,
-                subscriptionId: sub.subscriptionId
-            }))
+            // CRITICAL: Only send subscriptions that aren't deleted (status != 2)
+            subscriptionData: this.subscriptions
+                .filter(sub => sub.status !== 2 || sub.subscriptionId) // Include deleted if has DB ID
+                .map(sub => ({
+                    aoiId: sub.aoiId,
+                    channelId: sub.channelId,
+                    userIds: sub.userIds,
+                    alertDisseminationMode: sub.alertDisseminationMode,
+                    auxData: sub.auxData,
+                    status: sub.status,
+                    subscriptionId: sub.subscriptionId
+                }))
         };
     }
 

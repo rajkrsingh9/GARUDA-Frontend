@@ -1,4 +1,4 @@
-<!-- frontend/src/views/ConfigureProjectUI.vue -->
+<!-- frontend/src/views/ConfigureProjectUI.vue - With Permissions -->
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -6,6 +6,7 @@ import { useProjectStore } from '@/stores/ProjectStore.js';
 import { storeToRefs } from 'pinia';
 import InlineMessage from "@/components/common/InlineMessage.vue";
 import { useMessageStore } from '@/stores/MessageStore.js';
+import PermissionLock from '@/components/common/PermissionLock.vue';
 
 // Component Imports
 import Step1BasicInfo from '@/components/steps/Step1BasicInfo.vue';
@@ -22,7 +23,7 @@ const route = useRoute();
 const projectStore = useProjectStore();
 const messageStore = useMessageStore();
 
-const { projectForm, projectName, description } = storeToRefs(projectStore);
+const { projectForm, projectName, description, userPermissions } = storeToRefs(projectStore);
 const isDataLoading = ref(false);
 
 const currentStep = computed(() => projectStore.currentStep);
@@ -58,7 +59,15 @@ onMounted(async () => {
 });
 
 const handleSubmit = async () => {
-    // Validation checks
+    // Check if user has permission to submit
+    if (isUpdateMode.value && !canSubmitProject.value) {
+        messageStore.showMessage(
+            "You do not have sufficient permissions to update this project.",
+            "error"
+        );
+        return;
+    }
+
     if (!projectName.value || projectForm.value.aoiDrafts.length === 0) {
         messageStore.showMessage(
             "Please complete Step 1 (Project Name) and Step 3 (Draw at least one AOI) before final submission.",
@@ -67,7 +76,6 @@ const handleSubmit = async () => {
         return;
     }
 
-    // FIXED: Validate that all AOIs have at least one subscription using clientAoiId
     const activeAOIs = projectForm.value.aoiDrafts.filter(aoi => aoi.status !== 2);
     for (const aoi of activeAOIs) {
         const hasSubscription = projectForm.value.aoiHasSubscription(aoi.clientAoiId);
@@ -105,19 +113,16 @@ const goBack = () => {
 };
 
 const nextStep = () => {
-    // Step 1 validation
     if (currentStep.value === 1 && !projectName.value) {
         messageStore.showMessage("Please enter a Project Name.", "error");
         return;
     }
 
-    // Step 2 validation
     if (currentStep.value === 2 && projectForm.value.users.length === 0) {
         messageStore.showMessage("Please add at least one user.", "error");
         return;
     }
 
-    // Step 3 validation
     if (currentStep.value === 3 && projectForm.value.aoiDrafts.filter(a => a.status !== 2).length === 0) {
         messageStore.showMessage("Please define at least one Area of Interest.", "error");
         return;
@@ -129,24 +134,45 @@ const nextStep = () => {
 const isStepActive = (step) => currentStep.value === step;
 const isStepVisited = (step) => step < currentStep.value;
 
+// Check if step is locked
+const isStepLocked = (step) => {
+    if (!isUpdateMode.value) return false;
+    return !projectStore.hasStepPermission(step);
+};
+
 const progressWidth = computed(() => {
     const percentage = (currentStep.value - 1) * 25;
     return `${percentage}%`;
 });
 
-// FIXED: Check if submit should be disabled using clientAoiId
+// Check if user can submit the project
+const canSubmitProject = computed(() => {
+    if (!isUpdateMode.value) return true; // Creating new project - always allowed
+    
+    // For updates, check if user has at least one permission
+    const perms = userPermissions.value.permissions;
+    return perms.canEditProjectInfo || 
+           perms.canEditUsers || 
+           perms.canEditAOI || 
+           perms.canEditSubscriptions;
+});
+
 const canSubmit = computed(() => {
     if (!projectName.value || projectForm.value.aoiDrafts.length === 0) {
         return false;
     }
 
-    // Check if all active AOIs have subscriptions
     const activeAOIs = projectForm.value.aoiDrafts.filter(aoi => aoi.status !== 2);
     for (const aoi of activeAOIs) {
         const hasSubscription = projectForm.value.aoiHasSubscription(aoi.clientAoiId);
         if (!hasSubscription) {
             return false;
         }
+    }
+
+    // In edit mode, check if user has permissions to submit
+    if (isUpdateMode.value && !canSubmitProject.value) {
+        return false;
     }
 
     return true;
@@ -178,18 +204,34 @@ const canSubmit = computed(() => {
             <div class="flex justify-between items-center relative z-10">
                 <template v-for="step in 4" :key="step">
                     <div class="w-1/4 flex flex-col items-center cursor-pointer">
-                        <div class="w-[4vh] h-[4vh] rounded-full border-2 flex items-center justify-center text-sm font-bold transition-all duration-300"
-                            :class="{
-                                'bg-cyan-500 border-cyan-500 text-white': isStepActive(step),
-                                'bg-orange-600 border-orange-600 text-white': isStepVisited(step) && !isStepActive(step) && isUpdateMode,
-                                'bg-green-600 border-green-600 text-white': isStepVisited(step) && !isStepActive(step) && !isUpdateMode,
-                                'bg-gray-700 border-gray-600 text-gray-400': !isStepVisited(step) && !isStepActive(step)
-                            }">
-                            {{ step }}
+                        <div class="relative">
+                            <div class="w-[4vh] h-[4vh] rounded-full border-2 flex items-center justify-center text-sm font-bold transition-all duration-300"
+                                :class="{
+                                    'bg-cyan-500 border-cyan-500 text-white': isStepActive(step),
+                                    'bg-orange-600 border-orange-600 text-white': isStepVisited(step) && !isStepActive(step) && isUpdateMode,
+                                    'bg-green-600 border-green-600 text-white': isStepVisited(step) && !isStepActive(step) && !isUpdateMode,
+                                    'bg-gray-700 border-gray-600 text-gray-400': !isStepVisited(step) && !isStepActive(step)
+                                }">
+                                {{ step }}
+                            </div>
+                            <!-- Lock icon for locked steps -->
+                            <div v-if="isStepLocked(step)" 
+                                class="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full flex items-center justify-center"
+                                title="You don't have permission to edit this step">
+                                <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z">
+                                    </path>
+                                </svg>
+                            </div>
                         </div>
 
                         <span class="text-[1.5vh] mt-1 text-center truncate w-full"
-                            :class="{ 'text-cyan-400 font-bold': isStepActive(step), 'text-gray-400': !isStepActive(step) }">
+                            :class="{ 
+                                'text-cyan-400 font-bold': isStepActive(step), 
+                                'text-red-400': isStepLocked(step),
+                                'text-gray-400': !isStepActive(step) && !isStepLocked(step)
+                            }">
                             {{ stepNames[step - 1] }}
                         </span>
                     </div>
@@ -204,10 +246,32 @@ const canSubmit = computed(() => {
     <div v-else class="configure-project-ui h-[73vh] overflow-y-auto flex-col text-white">
         <div class="w-full max-w-6xl mx-auto h-[69vh] px-4 pb-3 pt-2 relative">
             <div class="step-content h-full rounded-xl overflow-y-hidden">
-                <Step1BasicInfo v-if="currentStep === 1" :project-data="projectForm" />
+                <!-- Step 1: Basic Info -->
+                <PermissionLock v-if="currentStep === 1" 
+                    :has-permission="!isUpdateMode || projectStore.hasStepPermission(1)"
+                    step-name="Project Information"
+                    message="You do not have permission to edit project information. Please ask the project owner to grant you 'project_info_update' permission.">
+                    <Step1BasicInfo :project-data="projectForm" />
+                </PermissionLock>
+
+                <!-- Step 2: Users (has its own permission lock inside) -->
                 <Step2AddUsers v-if="currentStep === 2" :project-data="projectForm" />
-                <Step3DefineAOI v-if="currentStep === 3" :project-data="projectForm" />
-                <Step4Subscriptions v-if="currentStep === 4" :project-data="projectForm" />
+
+                <!-- Step 3: AOI -->
+                <PermissionLock v-if="currentStep === 3" 
+                    :has-permission="!isUpdateMode || projectStore.hasStepPermission(3)"
+                    step-name="Area of Interest"
+                    message="You do not have permission to edit AOIs. Please ask the project owner to grant you 'aoi_update' permission.">
+                    <Step3DefineAOI :project-data="projectForm" />
+                </PermissionLock>
+
+                <!-- Step 4: Subscriptions -->
+                <PermissionLock v-if="currentStep === 4" 
+                    :has-permission="!isUpdateMode || projectStore.hasStepPermission(4)"
+                    step-name="Subscriptions"
+                    message="You do not have permission to edit subscriptions. Please ask the project owner to grant you 'subscription_update' permission.">
+                    <Step4Subscriptions :project-data="projectForm" />
+                </PermissionLock>
             </div>
         </div>
 

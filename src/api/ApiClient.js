@@ -15,7 +15,6 @@ export class ApiClient {
 
     constructor() {
         this.client = axios.create({
-            // Change 5: Replace localhost with your machine's actual network IP
             baseURL: '/api', 
             headers: {
                 'Content-Type': 'application/json',
@@ -93,6 +92,11 @@ export class ApiClient {
         const response = await this.client.get(`/projects/${projectId}`);
         return response.data;
     }
+
+    async getProjectPermissions(projectId) {
+    const response = await this.client.get(`/projects/${projectId}/permissions`);
+    return response.data;
+}
     
     async deleteProject(projectId) {
         await this.client.delete(`/projects/${projectId}`);
