@@ -236,21 +236,21 @@ const displayAlertFeatures = (features) => {
             // Create the layer with VERY VISIBLE styling
             const layer = L.geoJSON(geoJsonToDisplay, {
                 style: {
-                    color: '#ffc107',        // Bright gold/yellow
-                    weight: 6,               // INCREASED from 4 to 6 for visibility
-                    opacity: 1,              // Fully opaque
+                    color: '#ffc107', 
+                    weight: 6,           
+                    opacity: 1,              
                     fillColor: '#ffc107', 
-                    fillOpacity: 0.5,        // INCREASED from 0.4 to 0.5
-                    dashArray: '10, 5',      // INCREASED dash size
-                    className: 'alert-feature-layer'  // Add class for CSS targeting
+                    fillOpacity: 0.5,        
+                    dashArray: '10, 5',      
+                    className: 'alert-feature-layer'  
                 },
                 pointToLayer: function (geoJsonPoint, latlng) {
                     console.log(`[MapViz] Creating point marker at [${latlng.lat}, ${latlng.lng}]`);
                     return L.circleMarker(latlng, {
-                        radius: 12,          // INCREASED from 10
+                        radius: 12,          
                         fillColor: "#ffc107",
                         color: "#ff9800",
-                        weight: 4,           // INCREASED from 3
+                        weight: 4,           
                         opacity: 1,
                         fillOpacity: 0.8,
                         className: 'alert-point-marker'
@@ -273,20 +273,16 @@ const displayAlertFeatures = (features) => {
                         layer.bindPopup(popupContent);
                     }
 
-                    // Add click handler for debugging
                     layer.on('click', () => {
                         console.log(`[MapViz] Alert feature ${index + 1} clicked`);
                     });
                 }
             });
 
-            // Add to the layer group
             layer.addTo(alertFeaturesLayerGroup.value);
             successCount++;
             
-            // console.log(`[MapViz] ✅ Successfully added alert feature ${index + 1}`);
 
-            // Log the bounds of this feature
             try {
                 const bounds = layer.getBounds();
                 console.log(`[MapViz] Feature ${index + 1} bounds:`, {
@@ -970,21 +966,7 @@ watch(() => props.aoisToDisplay?.length, (newLength, oldLength) => {
     z-index: 700 !important;
 }
 
-/* Pulse animation for alert features */
-@keyframes alertPulse {
-    0%, 100% {
-        opacity: 1;
-        transform: scale(1);
-    }
-    50% {
-        opacity: 0.7;
-        transform: scale(1.05);
-    }
-}
 
-:deep(.alert-feature-layer) {
-    animation: alertPulse 2s ease-in-out infinite;
-}
 
 /* Highlight effect on hover - MORE VISIBLE */
 :deep(.leaflet-interactive:hover) {

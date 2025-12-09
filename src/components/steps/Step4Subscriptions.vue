@@ -286,7 +286,7 @@ const formattedUserFilterOptions = computed(() => {
 </script>
 
 <template>
-    <div class="h-[70vh] flex flex-col relative">
+    <div class="h-[66vh] flex flex-col relative">
         <div v-if="availableAOIs.length === 0"
             class="bg-red-900/50 border border-red-600 p-3 rounded-lg text-white mb-3 flex-shrink-0">
             <p class="font-semibold">⚠️ No AOIs Available</p>
@@ -360,7 +360,7 @@ const formattedUserFilterOptions = computed(() => {
                     </div>
 
                     <div v-for="(subs, aoiName) in filteredAndGroupedSubscriptions" :key="aoiName"
-                        class="bg-gray-800 border border-gray-700 rounded-lg pt-1 h-[47vh] overflow-y-auto p-3">
+                        class="bg-gray-800 border border-gray-700 rounded-lg pt-1  overflow-y-auto p-3">
 
                         <h3 class="text-cyan-300 font-semibold mb-2 text-sm">
                             📍 {{ aoiName }} ({{ subs.length }})
@@ -438,12 +438,9 @@ const formattedUserFilterOptions = computed(() => {
                 <div class="p-5 flex justify-between items-center border-b border-gray-700 flex-shrink-0">
                     <h3 class="text-2xl font-bold text-blue-400">New Subscription</h3>
                     <button @click="showAddSubscriptionModal = false"
-                        class="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white transition"
+                        class="p-1 rounded-full text-white bg-red-600 hover:bg-gray-700 hover:text-white transition"
                         title="Close">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
+                        Cancel
                     </button>
                 </div>
 

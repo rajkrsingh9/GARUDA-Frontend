@@ -181,7 +181,7 @@ const canSubmit = computed(() => {
 
 <template>
     <div class="w-full h-[12vh] pt-0 p-0.5 bg-gray-700 shadow-lg border-b border-gray-600 z-[8]">
-        <div class="w-full h-[4.4vh] max-w-6xl mx-auto mb-1 flex justify-center items-center"
+        <div class="w-full h-[4.4vh] mx-auto mb-1 flex justify-center items-center"
             :class="{ 'bg-orange-600 text-white': isUpdateMode, 'bg-blue-600 text-white': !isUpdateMode }">
             <h1 class="text-2xl sm:text-2xl font-bold w-full p-2 truncate max-w-[70%]">
                 {{ isUpdateMode ? '' : 'Add New Project' }}
@@ -238,8 +238,11 @@ const canSubmit = computed(() => {
                 </template>
             </div>
         </div>
+        <div class="absolute items-center flex justify-center w-[100vw]"> 
+            <InlineMessage />
+        </div>
 
-        <InlineMessage />
+        
     </div>
 
     <div v-if="isDataLoading" class="loading-message">Loading existing project data...</div>

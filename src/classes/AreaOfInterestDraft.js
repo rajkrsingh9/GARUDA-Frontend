@@ -10,7 +10,7 @@ export class AreaOfInterestDraft {
     bufferDistance = null;
     geometryType = 'Polygon';
     geomProperties = {};
-    auxData = null; // NEW: Store auxiliary data separately
+    auxData = null; 
     status = 1;
     dbId = null;
 
@@ -119,7 +119,7 @@ export class AreaOfInterestDraft {
             }
         }
 
-        // CRITICAL: Store original coordinates in geomProperties
+        // this Store original coordinates in geomProperties
         const geomProps = {
             ...this.geomProperties,
             originalType: this.geometryType,
@@ -132,7 +132,7 @@ export class AreaOfInterestDraft {
             name: this.name,
             geomGeoJson: this.geometry,
             geomProperties: geomProps,
-            auxData: this.auxData, // NEW: Send auxData separately
+            auxData: this.auxData, 
             status: this.status,
             mappedAlgorithms: this.mappedAlgorithms.map(a => ({
                 algoId: a.algoId,

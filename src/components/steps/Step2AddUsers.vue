@@ -270,12 +270,9 @@ onMounted(async () => {
 
                             <!-- Remove button (not for current user) -->
                             <button v-if="user.userId !== session.userId" @click="removeUser(user.userId)"
-                                class="text-red-400 hover:text-red-300 p-2 rounded hover:bg-red-900/30 transition"
+                                class="text-white-400 hover:text-red-300 bg-red-600 p-2 rounded hover:bg-red-900/30 transition"
                                 title="Remove user from project and all subscriptions">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M6 18L18 6M6 6l12 12" />
-                                </svg>
+                                Remove
                             </button>
 
                             <span v-else class="text-green-400 text-sm ml-2">

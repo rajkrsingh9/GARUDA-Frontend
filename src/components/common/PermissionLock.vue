@@ -48,13 +48,7 @@ const showLock = computed(() => !props.hasPermission);
                     {{ message }}
                 </p>
 
-                <!-- Info Box -->
-                <div class="mt-4 p-3 bg-yellow-900/30 border border-yellow-600 rounded-lg">
-                    <p class="text-yellow-300 text-xs">
-                        <strong>Note:</strong> You can view this step but cannot make changes. 
-                        Contact the project owner to request edit permissions.
-                    </p>
-                </div>
+                
             </div>
         </div>
     </div>
