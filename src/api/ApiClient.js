@@ -14,13 +14,13 @@ export class ApiClient {
 
 
     constructor() {
-        this.client = axios.create({
-            baseURL: '/api', 
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
-    }
+        this.client = axios.create({
+            baseURL: '/api',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+    }
     
 
     static getInstance() {

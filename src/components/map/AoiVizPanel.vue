@@ -13,7 +13,6 @@ const props = defineProps({
 
 const emit = defineEmits(['close']);
 
-// --- STATE ---
 const selectedChannelIds = ref([]);
 const CHANNEL_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 const channelColorMap = ref({});

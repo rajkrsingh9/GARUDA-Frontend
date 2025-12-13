@@ -448,14 +448,8 @@ plugin.path=/home/YOUR_USER_NAME/kafka/plugins
 group.id=connect-cluster
 ```
 
-**⚠️ Critical:** Replace `YOUR_USER_NAME` with your actual username:
-```bash
-# Find your username
-echo $USER
+**⚠️ Critical:** Replace with your plugin path
 
-# Update the plugin.path line accordingly
-# Example: plugin.path=/home/john/kafka/plugins
-```
 
 #### B. Create Debezium Connector Configuration
 

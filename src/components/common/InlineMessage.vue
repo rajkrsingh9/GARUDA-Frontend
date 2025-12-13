@@ -1,3 +1,5 @@
+<!-- GARUDA-Frontend/src/components/common/InlineMessage.vue -->
+
 <script setup>
 import { useMessageStore } from '@/stores/MessageStore.js';
 const messageStore = useMessageStore();

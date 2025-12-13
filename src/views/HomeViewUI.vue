@@ -15,16 +15,14 @@ const session = UserSession.getInstance();
 
 
 const totalProjects = ref(0);
-const activeAlerts = computed(() => projectStore.totalAlerts); // Reactive alert count
+const activeAlerts = computed(() => projectStore.totalAlerts); 
 
 
 onMounted(async () => {
-    // Fetch projects to update the count in the dashboard sneak peek
     await Promise.all([
         projectStore.fetchUserProjects(),
     ]);
     totalProjects.value = projectStore.userProjects.length;
-    // In a future phase, activeAlerts would be fetched from the backend Alert table
 });
 
 
@@ -74,7 +72,6 @@ const handleLogout = () => {
                             d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
                     <h2 class="text-xl font-bold mb-1" style="color: var(--text-color);">Add Project</h2>
-                    <!-- <p class="text-sm" style="color: var(--text-muted);">Define a new Area of Interest (AOI) and monitoring rules.</p> -->
                 </div>
 
                 <div @click="handleManageProject"
@@ -137,20 +134,15 @@ const handleLogout = () => {
     transform: translateY(-2px);
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
-/* Ensure the action cards have a noticeable effect on hover/focus for better UX */
 .action-card > div:hover, .action-card > div:focus-within {
-    /* Subtle 3D lift on hover */
     box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-    /* For better accessibility and visual feedback */
-    border-color: #3b82f6; /* Tailwind blue-500 equivalent for focus/hover ring */
+    border-color: #3b82f6; 
     outline: none;
 }
 
-/* Base background for the whole view */
 #home-view {
-    background-color: #030712; /* A deeper, darker background (gray-950) for contrast */
+    background-color: #030712; 
 }
-/* Ensure the focus state is clear for accessibility (can be adjusted with Tailwind focus classes) */
 .action-card:focus-within {
     outline: 2px solid #10b981; 
     outline-offset: 4px;
@@ -177,9 +169,8 @@ const handleLogout = () => {
 
 
 .main-container {
-    background-color: #1f2937; /* Gray-800 equivalent */
+    background-color: #1f2937; 
 }
-/* Ensure the action cards have a noticeable effect on hover */
 .card-gradient-hover:hover {
     transform: translateY(-2px);
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15);
