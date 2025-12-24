@@ -1,5 +1,5 @@
 // UserSession.js 
-import { ApiClient } from '../api/ApiClient.js';
+import { ApiClient } from '../api/backendAPIendpoint.js';
 
 /**
  * UserSession: Manages the logged-in state and user details.

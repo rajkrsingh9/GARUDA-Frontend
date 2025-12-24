@@ -4,7 +4,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { ProjectFormData } from '../classes/ProjectFormData.js';
 import { AreaOfInterestDraft } from '../classes/AreaOfInterestDraft.js';
-import { ApiClient } from '../api/ApiClient.js';
+import { ApiClient } from '../api/backendAPIendpoint.js';
 import { UserSession } from '../classes/UserSession.js';
 
 const api = ApiClient.getInstance();
@@ -78,7 +78,6 @@ function mapBackendToForm(data) {
         aoiDraft.dbId = aoi.id;
         aoiDraft.status = aoi.status || 1;
 
-        // CRITICAL: Store original coordinates and other geometry properties
         aoiDraft.geomProperties = {
             ...(aoi.geom_properties || {}),
             originalType: geometryType,
@@ -87,7 +86,6 @@ function mapBackendToForm(data) {
             originalCoordinates: aoi.geom_properties?.originalCoordinates || null
         };
 
-        // CRITICAL: Set auxData separately
         aoiDraft.setAuxData(aoi.auxdata || null);
 
         return aoiDraft;

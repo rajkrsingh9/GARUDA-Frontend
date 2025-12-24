@@ -1,8 +1,8 @@
-// api/ApiClient.js
+// api/backendAPIendpoint.js
 import axios from 'axios';
 
 /**
- * ApiClient: Manages all API calls, including setting headers for authentication.
+ * backendAPIendpoint: Manages all API calls, including setting headers for authentication.
  * Updated for subscription-based flow.
  */
 
@@ -10,7 +10,6 @@ export class ApiClient {
     client;
     static instance;
     userId = null;
-
 
 
     constructor() {
@@ -107,6 +106,6 @@ export class ApiClient {
         if (aoiId) params.aoiId = aoiId;
 
         const response = await this.client.get(`/projects/${projectId}/alerts`, { params });
-        return response.data; // returns { alerts, timeRange }
+        return response.data; 
     }
 }

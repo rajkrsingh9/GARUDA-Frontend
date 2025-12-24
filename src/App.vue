@@ -1,7 +1,7 @@
 <!-- App.vue - Responsive Layout -->
 
 <script setup>
-import { ApiClient } from './api/ApiClient.js';
+import { ApiClient } from './api/backendAPIendpoint.js';
 import { ref, watchEffect, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { UserSession } from './classes/UserSession.js';
