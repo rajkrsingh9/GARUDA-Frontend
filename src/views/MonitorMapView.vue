@@ -3,7 +3,7 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { ApiClient } from '@/api/ApiClient.js';
+import { ApiClient } from '@/api/backendAPIendpoint.js';
 import MapVisualization from '@/components/map/MapVisualization.vue';
 import AoiVizPanel from '@/components/map/AoiVizPanel.vue';
 

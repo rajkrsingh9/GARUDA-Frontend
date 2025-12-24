@@ -4,7 +4,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { UserSession } from '@/classes/UserSession.js'; 
-import { ApiClient } from '@/api/ApiClient.js';
+import { ApiClient } from '@/api/backendAPIendpoint.js';
 
 const router = useRouter();
 const session = UserSession.getInstance();

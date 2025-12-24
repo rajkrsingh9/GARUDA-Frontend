@@ -1,7 +1,7 @@
 <!-- GARUDA-Frontend/src/components/steps/Step4Subscriptions.vue - FIXED with toggle and delete -->
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
-import { ApiClient } from '@/api/ApiClient.js';
+import { ApiClient } from '@/api/backendAPIendpoint.js';
 import { useMessageStore } from '@/stores/MessageStore.js';
 import { useProjectStore } from '@/stores/ProjectStore.js';
 import CustomSelect from '@/components/common/CustomSelect.vue';

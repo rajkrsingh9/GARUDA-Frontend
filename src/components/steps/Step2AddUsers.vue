@@ -1,7 +1,7 @@
 <!-- frontend/src/components/steps/Step2AddUsers.vue - With user removal handling -->
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
-import { ApiClient } from '@/api/ApiClient.js';
+import { ApiClient } from '@/api/backendAPIendpoint.js';
 import { useMessageStore } from '@/stores/MessageStore.js';
 import { useProjectStore } from '@/stores/ProjectStore.js';
 import { UserSession } from '@/classes/UserSession.js';
