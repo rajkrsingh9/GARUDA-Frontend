@@ -15,15 +15,18 @@ const password = ref('pass');
 const email = ref('');
 const contactno = ref('');
 const errorMessage = ref('');
+const messageType = ref('error'); // 'error' or 'success'
 const isSigningUp = ref(false); 
 
 const submitAuth = async () => {
     errorMessage.value = '';
+    messageType.value = 'error';
 
     if (isSigningUp.value) {
         // --- SIGNUP LOGIC ---
         if (!username.value || !password.value || !email.value || !contactno.value) {
             errorMessage.value = 'All fields are required for signup.';
+            messageType.value = 'error';
             return;
         }
 
@@ -31,6 +34,7 @@ const submitAuth = async () => {
             // Pass all four parameters to signup
             await api.signup(username.value, password.value, email.value, contactno.value);
             errorMessage.value = 'Signup successful! Please log in with your new account.';
+            messageType.value = 'success';
             isSigningUp.value = false;
             email.value = '';
             contactno.value = '';
@@ -38,6 +42,7 @@ const submitAuth = async () => {
         } catch (error) {
             const message = error.response?.data?.message || 'Signup failed. User may already exist or invalid input.';
             errorMessage.value = message;
+            messageType.value = 'error';
         }
 
     } else {
@@ -48,6 +53,7 @@ const submitAuth = async () => {
             router.push('/');
         } else {
             errorMessage.value = 'Login failed. Check username and password.';
+            messageType.value = 'error';
         }
     }
 };
@@ -58,7 +64,10 @@ const submitAuth = async () => {
     <h2 class="text-3xl font-bold mb-6 text-center text-cyan-400">{{ isSigningUp ? 'Sign Up' : 'Login' }} to Garuda V1</h2>
     <form @submit.prevent="submitAuth">
         
-      <p v-if="errorMessage" class="error-message bg-red-600 p-3 rounded mb-4 text-sm text-center">
+      <p v-if="errorMessage" :class="[
+        'message p-3 rounded mb-4 text-sm text-center',
+        messageType === 'success' ? 'bg-green-600' : 'bg-red-600'
+      ]">
         {{ errorMessage }}
       </p>
 
@@ -117,7 +126,7 @@ const submitAuth = async () => {
     
     <div class="mt-6 text-center">
         <button 
-            @click="isSigningUp = !isSigningUp; errorMessage = ''" 
+            @click="isSigningUp = !isSigningUp; errorMessage = ''; messageType = 'error'" 
             class="text-sm font-medium text-gray-400 hover:text-cyan-400 transition duration-150"
         >
             {{ isSigningUp ? 'Already have an account? Log In' : "Don't have an account? Sign Up" }}
@@ -131,7 +140,7 @@ const submitAuth = async () => {
     background-color: #1f2937;
     color: white;
 }
-.error-message {
-    background-color: #dc2626;
+.message {
+    color: white;
 }
 </style>

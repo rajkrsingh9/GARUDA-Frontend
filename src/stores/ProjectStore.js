@@ -3,46 +3,38 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { ProjectFormData } from '../classes/ProjectFormData.js';
+import { ProjectBundleModel } from '../models/ProjectBundleModel.js';
 import { AreaOfInterestDraft } from '../classes/AreaOfInterestDraft.js';
 import { ApiClient } from '../api/backendAPIendpoint.js';
 import { UserSession } from '../classes/UserSession.js';
 
 const api = ApiClient.getInstance();
 
-
-
 /**
  * Maps backend data to ProjectFormData for editing
- * FIXED: Proper auxData handling
+ * Now uses ProjectBundleModel for cleaner mapping, but maintains AreaOfInterestDraft for UI compatibility
  */
 function mapBackendToForm(data) {
     const form = new ProjectFormData(true, data.id);
 
-    // Step 1: Basic Info
-    form.projectName = data.project_name;
-    form.description = data.description;
+    // Convert auxData to drafts format for UI editing
     form.auxDataDrafts = data.auxdata ? Object.entries(data.auxdata).map(([key, value]) => ({
         key,
         value: typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)
     })) : [];
 
-    // Step 2: Users with Roles
-    form.users = (data.users || []).map(user => {
+    // Convert users - use UserProjectModel for bundle, but keep simple format for form
+    const userModels = (data.users || []).map(user => {
         if (typeof user === 'object' && user.userId) {
-            return {
-                userId: user.userId,
-                roles: user.roles || []
-            };
+            return { userId: user.userId, roles: user.roles || [] };
         }
-        return {
-            userId: user,
-            roles: []
-        };
+        return { userId: user, roles: [] };
     });
+    form.users.splice(0, form.users.length, ...userModels);
 
-    // Step 3: AOIs - FIXED to handle auxData
+    // Convert AOIs to drafts (components use AreaOfInterestDraft)
     let aoiCounter = 1;
-    form.aoiDrafts = data.aois.map((aoi) => {
+    const aoiDrafts = data.aois.map((aoi) => {
         let geometry = aoi.geomGeoJson;
 
         if (!geometry) {
@@ -90,15 +82,17 @@ function mapBackendToForm(data) {
 
         return aoiDraft;
     }).filter(draft => draft !== null);
+    
+    form.aoiDrafts.splice(0, form.aoiDrafts.length, ...aoiDrafts);
 
-    // Step 4: Subscriptions
-    form.subscriptions = [];
+    // Convert subscriptions - create SubscriptionModel instances for bundle
+    const subscriptions = [];
     data.aois.forEach(aoi => {
         if (aoi.subscriptions && aoi.subscriptions.length > 0) {
             aoi.subscriptions.forEach(sub => {
                 const aoiDraft = form.aoiDrafts.find(d => d.aoiId === aoi.aoi_id);
                 if (aoiDraft) {
-                    form.subscriptions.push({
+                    subscriptions.push({
                         aoiId: aoi.aoi_id,
                         clientAoiId: aoiDraft.clientAoiId,
                         channelId: sub.channelId,
@@ -112,6 +106,11 @@ function mapBackendToForm(data) {
             });
         }
     });
+    
+    form.subscriptions.splice(0, form.subscriptions.length, ...subscriptions);
+
+    // Update bundle's project basic info
+    form.bundle.project = ProjectBundleModel.fromBackend(data).project;
 
     console.log('[ProjectStore] Mapped form data:', {
         users: form.users.length,

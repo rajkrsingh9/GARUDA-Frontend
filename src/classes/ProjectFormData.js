@@ -1,15 +1,23 @@
 // classes/ProjectFormData.js
 
+import { ProjectBundleModel } from '../models/ProjectBundleModel.js';
+import { UserProjectModel } from '../models/UserProjectModel.js';
+import { SubscriptionModel } from '../models/SubscriptionModel.js';
+import { AreaOfInterestModel } from '../models/AreaOfInterestModel.js';
+
 /**
  * ProjectFormData: Manages the volatile state of the 4-step project configuration process.
- * FIXED: Proper user removal handling and subscription cleanup
+ * This class now delegates data operations to ProjectBundleModel for better modularity.
  */
 export class ProjectFormData {
-    projectName = '';
-    description = '';
-    auxDataDrafts = [];
-
-    users = []; // Array of {userId: string, roles: number[]}
+    bundle = null; // ProjectBundleModel instance (used for bundle generation)
+    auxDataDrafts = []; // UI-specific draft data for auxData editing
+    
+    // Form data arrays (separate from bundle for type compatibility)
+    // users: Array of {userId, roles} or UserProjectModel
+    // aoiDrafts: Array of AreaOfInterestDraft
+    // subscriptions: Array of subscription objects or SubscriptionModel
+    users = [];
     aoiDrafts = [];
     subscriptions = [];
 
@@ -18,9 +26,32 @@ export class ProjectFormData {
     projectIdToUpdate = null;
 
     constructor(isUpdate = false, projectId = null) {
+        this.bundle = new ProjectBundleModel();
+        // Form arrays are separate from bundle arrays
+        // They'll be converted to models when creating the bundle
+        this.users = [];
+        this.aoiDrafts = [];
+        this.subscriptions = [];
         this.isUpdateMode = isUpdate;
         this.projectIdToUpdate = projectId;
-        this.users = [];
+        this.auxDataDrafts = [];
+    }
+
+    // Project basic info getters/setters for backward compatibility
+    get projectName() {
+        return this.bundle.project.projectName;
+    }
+
+    set projectName(value) {
+        this.bundle.project.projectName = value;
+    }
+
+    get description() {
+        return this.bundle.project.description;
+    }
+
+    set description(value) {
+        this.bundle.project.description = value;
     }
 
     nextStep() {
@@ -36,6 +67,7 @@ export class ProjectFormData {
     }
 
     addAOIDraft(aoi) {
+        // Add directly to form array (aoiDrafts uses AreaOfInterestDraft)
         this.aoiDrafts.push(aoi);
     }
 
@@ -56,10 +88,9 @@ export class ProjectFormData {
             }
         });
 
-        // Remove subscriptions that have no users left
+        // Remove subscriptions that have no users left (unless they're deleted with DB ID)
         this.subscriptions = this.subscriptions.filter(sub => {
-            // Keep subscriptions with users OR subscriptions marked for deletion (status=2)
-            return (sub.userIds && sub.userIds.length > 0) || sub.status === 2;
+            return (sub.userIds && sub.userIds.length > 0) || (sub.status === 2 && sub.subscriptionId);
         });
 
         console.log(`[ProjectFormData] User ${userId} removed from project and all subscriptions`);
@@ -100,20 +131,6 @@ export class ProjectFormData {
             return;
         }
 
-        let existingIndex = -1;
-        
-        if (subscriptionId) {
-            existingIndex = this.subscriptions.findIndex(s => s.subscriptionId === subscriptionId);
-        } else {
-            const userIdsStr = JSON.stringify([...userIds].sort());
-            existingIndex = this.subscriptions.findIndex(s => 
-                s.aoiId === aoiId && 
-                s.channelId === channelId &&
-                JSON.stringify([...s.userIds].sort()) === userIdsStr &&
-                s.status !== 2
-            );
-        }
-
         const subscription = {
             aoiId,
             clientAoiId,
@@ -124,6 +141,21 @@ export class ProjectFormData {
             alertDisseminationMode: ['notify'],
             auxData: null
         };
+
+        // Find existing subscription
+        let existingIndex = -1;
+        
+        if (subscriptionId) {
+            existingIndex = this.subscriptions.findIndex(s => s.subscriptionId === subscriptionId);
+        } else {
+            const userIdsStr = JSON.stringify([...userIds].sort());
+            existingIndex = this.subscriptions.findIndex(s => 
+                s.aoiId === aoiId && 
+                s.channelId === channelId &&
+                JSON.stringify([...(s.userIds || [])].sort()) === userIdsStr &&
+                s.status !== 2
+            );
+        }
 
         if (existingIndex >= 0) {
             this.subscriptions[existingIndex] = subscription;
@@ -136,11 +168,13 @@ export class ProjectFormData {
      * Toggle subscription status between active (1) and inactive (0)
      */
     toggleSubscriptionStatus(subscription) {
-        const index = this.subscriptions.findIndex(
-            s => s.clientAoiId === subscription.clientAoiId && 
-                 s.channelId === subscription.channelId && 
-                 s.subscriptionId === subscription.subscriptionId
-        );
+        const index = this.subscriptions.findIndex(s => {
+            if (subscription.subscriptionId && s.subscriptionId) {
+                return s.subscriptionId === subscription.subscriptionId;
+            }
+            return s.clientAoiId === subscription.clientAoiId && 
+                   s.channelId === subscription.channelId;
+        });
 
         if (index === -1) {
             console.warn('Subscription not found for toggle:', subscription);
@@ -155,12 +189,14 @@ export class ProjectFormData {
      * Soft deletes a subscription (marks as deleted with status 2)
      */
     softDeleteSubscription(subscription) {
-        const index = this.subscriptions.findIndex(
-            s => s.clientAoiId === subscription.clientAoiId && 
-                 s.channelId === subscription.channelId && 
-                 s.subscriptionId === subscription.subscriptionId &&
-                 s.status !== 2
-        );
+        const index = this.subscriptions.findIndex(s => {
+            if (subscription.subscriptionId && s.subscriptionId) {
+                return s.subscriptionId === subscription.subscriptionId;
+            }
+            return s.clientAoiId === subscription.clientAoiId && 
+                   s.channelId === subscription.channelId &&
+                   s.status !== 2;
+        });
 
         if (index === -1) {
             console.warn('Subscription not found for soft deletion:', subscription);
@@ -180,14 +216,16 @@ export class ProjectFormData {
      * Hard removes a subscription (status=2) - DEPRECATED, use softDeleteSubscription
      */
     hardRemoveSubscription(clientAoiIdOrSubscription, channelId = null) {
-        this.softDeleteSubscription(
-            typeof clientAoiIdOrSubscription === 'object' 
-                ? clientAoiIdOrSubscription 
-                : this.subscriptions.find(s => 
-                    (s.aoiId === clientAoiIdOrSubscription || s.clientAoiId === clientAoiIdOrSubscription) 
-                    && s.channelId === channelId
-                )
-        );
+        const sub = typeof clientAoiIdOrSubscription === 'object'
+            ? clientAoiIdOrSubscription
+            : this.subscriptions.find(s =>
+                (s.aoiId === clientAoiIdOrSubscription || s.clientAoiId === clientAoiIdOrSubscription)
+                && s.channelId === channelId
+            );
+        
+        if (sub) {
+            this.softDeleteSubscription(sub);
+        }
     }
 
     /**
@@ -229,57 +267,61 @@ export class ProjectFormData {
 
     /**
      * Converts to backend bundle format with proper user/role structure
+     * Converts form data (drafts) to bundle format
      */
     toBackendBundle() {
+        // Update bundle's project from form data
         const finalAuxData = this.getFinalAuxData();
+        this.bundle.project.projectName = this.projectName;
+        this.bundle.project.description = this.description;
+        this.bundle.project.auxData = Object.keys(finalAuxData).length > 0 ? finalAuxData : null;
+        this.bundle.project.id = this.projectIdToUpdate;
         
-        return {
-            projectBasicInfo: {
-                projectName: this.projectName,
-                description: this.description,
-                auxData: Object.keys(finalAuxData).length > 0 ? finalAuxData : null,
-            },
-            userData: this.users.map(user => {
-                if (typeof user === 'object' && user.userId) {
-                    return {
-                        userId: user.userId,
-                        roles: user.roles || []
-                    };
-                }
-                return {
-                    userId: user,
-                    roles: []
-                };
-            }),
-            aoiData: this.aoiDrafts.map(draft => {
-                const aoiData = draft.toBackendData();
-                if (!aoiData.aoiId) {
-                    aoiData.aoiId = `aoi_${draft.clientAoiId}`;
-                }
-                return aoiData;
-            }),
-            // CRITICAL: Only send subscriptions that aren't deleted (status != 2)
-            subscriptionData: this.subscriptions
-                .filter(sub => sub.status !== 2 || sub.subscriptionId) // Include deleted if has DB ID
-                .map(sub => ({
-                    aoiId: sub.aoiId,
-                    channelId: sub.channelId,
-                    userIds: sub.userIds,
-                    alertDisseminationMode: sub.alertDisseminationMode,
-                    auxData: sub.auxData,
-                    status: sub.status,
-                    subscriptionId: sub.subscriptionId
-                }))
-        };
+        // Update bundle's users from form users
+        this.bundle.users.splice(0, this.bundle.users.length, 
+            ...this.users.map(u => UserProjectModel.fromFormData(u))
+        );
+        
+        // Update bundle's AOIs from drafts
+        this.bundle.aois.splice(0, this.bundle.aois.length,
+            ...this.aoiDrafts.map(draft => AreaOfInterestModel.fromDraft(draft))
+        );
+        
+        // Update bundle's subscriptions from form subscriptions
+        this.bundle.subscriptions.splice(0, this.bundle.subscriptions.length,
+            ...this.subscriptions.map(sub => new SubscriptionModel(sub))
+        );
+        
+        return this.bundle.toBackendBundle();
+    }
+
+    /**
+     * Gets the internal bundle model for advanced operations
+     * @returns {ProjectBundleModel}
+     */
+    getBundle() {
+        return this.bundle;
+    }
+
+    /**
+     * Sets the bundle model (useful when loading from backend)
+     * @param {ProjectBundleModel} bundle
+     */
+    setBundle(bundle) {
+        // Bundle is used for validation and bundle generation
+        // Form arrays remain separate (they're populated separately in mapBackendToForm)
+        this.bundle = bundle;
+        if (bundle.project.id) {
+            this.projectIdToUpdate = bundle.project.id;
+        }
     }
 
     reset() {
-        this.projectName = '';
-        this.description = '';
-        this.auxDataDrafts = [];
+        this.bundle = new ProjectBundleModel();
         this.users = [];
         this.aoiDrafts = [];
         this.subscriptions = [];
+        this.auxDataDrafts = [];
         this.isUpdateMode = false;
         this.currentStep = 1;
         this.projectIdToUpdate = null;
