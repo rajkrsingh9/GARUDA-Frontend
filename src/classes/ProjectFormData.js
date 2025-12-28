@@ -10,13 +10,9 @@ import { AreaOfInterestModel } from '../models/AreaOfInterestModel.js';
  * This class now delegates data operations to ProjectBundleModel for better modularity.
  */
 export class ProjectFormData {
-    bundle = null; // ProjectBundleModel instance (used for bundle generation)
-    auxDataDrafts = []; // UI-specific draft data for auxData editing
-    
-    // Form data arrays (separate from bundle for type compatibility)
-    // users: Array of {userId, roles} or UserProjectModel
-    // aoiDrafts: Array of AreaOfInterestDraft
-    // subscriptions: Array of subscription objects or SubscriptionModel
+    bundle = null;
+    auxDataDrafts = []; 
+
     users = [];
     aoiDrafts = [];
     subscriptions = [];
@@ -27,8 +23,7 @@ export class ProjectFormData {
 
     constructor(isUpdate = false, projectId = null) {
         this.bundle = new ProjectBundleModel();
-        // Form arrays are separate from bundle arrays
-        // They'll be converted to models when creating the bundle
+
         this.users = [];
         this.aoiDrafts = [];
         this.subscriptions = [];
