@@ -97,10 +97,8 @@ const handleSubmit = async () => {
         router.push('/');
     } catch (error) {
         console.error("Submission Error:", error);
-        messageStore.showMessage(
-            error.message || "Error submitting project. Check the console for details.",
-            "error"
-        );
+        const errorMsg = error.message || error.response?.data?.message || error.response?.data?.error || "Error submitting project. Check the console for details.";
+        messageStore.showMessage(errorMsg, "error");
     }
 };
 

@@ -17,7 +17,6 @@ const api = ApiClient.getInstance();
 function mapBackendToForm(data) {
     const form = new ProjectFormData(true, data.id);
 
-    // Convert auxData to drafts format for UI editing
     form.auxDataDrafts = data.auxdata ? Object.entries(data.auxdata).map(([key, value]) => ({
         key,
         value: typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)
@@ -223,7 +222,14 @@ export const useProjectStore = defineStore('project', () => {
 
         } catch (error) {
             console.error('Error submitting project:', error);
-            throw new Error('Failed to submit project. See console for API error details.');
+            
+            // Extract error message from API response
+            const errorMessage = error.response?.data?.message || 
+                               error.response?.data?.error || 
+                               error.message || 
+                               'Failed to submit project. See console for API error details.';
+            
+            throw new Error(errorMessage);
         }
     }
 

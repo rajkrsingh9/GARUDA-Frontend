@@ -5,16 +5,16 @@
  * Acts as a blueprint for AOI data structure
  */
 export class AreaOfInterestModel {
-    id = null; // Database ID
-    aoiId = null; // AOI identifier (e.g., "aoi_1")
-    clientAoiId = null; // Client-side temporary ID
+    id = null; 
+    aoiId = null; 
+    clientAoiId = null; 
     projectId = null;
     name = '';
-    geomGeoJson = null; // GeoJSON geometry object
-    geomProperties = null; // Geometry properties (buffer, originalType, etc.)
-    auxData = null; // AOI-specific auxiliary data
-    status = 1; // 1: Active, 0: Inactive, 2: Deleted
-    mappedAlgorithms = []; // Array of algorithm mappings
+    geomGeoJson = null; 
+    geomProperties = null; 
+    auxData = null; 
+    status = 1; 
+    mappedAlgorithms = []; 
 
     /**
      * @param {Object} data - Data to initialize the model
