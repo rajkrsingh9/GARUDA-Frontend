@@ -1028,7 +1028,101 @@ CREATE PUBLICATION debezium_pub1 FOR TABLE alerts;
 
 ---
 
+## Re-start Garuda
+
+### Terminal 1: Kafka Won't Start
+
+**Problem:** Kafka fails to start with "log directory already exists"
+
+**Solution:**
+
+```bash
+# Stop Kafka if running
+# Clean old logs
+rm -rf /tmp/kraft-combined-logs
+
+# Re-format storage
+cd ~/kafka
+KAFKA_CLUSTER_ID="$(bin/kafka-storage.sh random-uuid)"
+bin/kafka-storage.sh format -t $KAFKA_CLUSTER_ID -c config/kraft-broker.properties
+
+# Restart Kafka
+bin/kafka-server-start.sh config/kraft-broker.properties
+```
+
+### Terminal 2: Start Debezium Connect
+
+```bash
+cd ~/kafka
+
+# Start Kafka Connect with Debezium connector
+bin/connect-standalone.sh \
+  config/connect-standalone.properties \
+  config/register-postgres.properties
+```
+
+**Expected Output:**
+```
+INFO Connector garuda-alerts-connector config updated
+INFO Creating connector garuda-alerts-connector of type io.debezium.connector.postgresql.PostgresConnector
+INFO WorkerConnector{id=garuda-alerts-connector} Connector started successfully
+```
+
+**Common Issues:**
+- If you see plugin errors, verify the `plugin.path` in `connect-standalone.properties`
+- If PostgreSQL connection fails, check your database credentials
+
+### Terminal 3: Start Redis
+
+```bash
+# If not already running as a service
+redis-server
+
+# Or check status
+sudo systemctl status redis-server
+```
+
+### Terminal 4: Start Backend Server
+
+```bash
+cd ~/garuda_app_v1/backend
+
+# Start the Node.js backend
+npm run start
+```
+
+**Expected Output:**
+```
+Server running on http://0.0.0.0:3000
+Connected to PostgreSQL
+Connected to Redis
+Kafka consumer connected
+Subscribed to topic: garuda_cdc.public.alerts
+```
+
+### Terminal 5: Start Frontend Development Server
+
+```bash
+cd ~/garuda_app_v1/frontend
+
+# Start Vite dev server
+npm run dev
+```
+
+**Expected Output:**
+```
+VITE v5.x.x  ready in xxx ms
+
+➜  Local:   http://localhost:5173/
+➜  Network: use --host to expose
+```
+
+---
+
+
+
 ## 🎓 Quick Start Checklist
+
 
 Use this checklist to ensure all steps are completed:
 
